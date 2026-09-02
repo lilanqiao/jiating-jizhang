@@ -141,31 +141,28 @@ function parseText(raw){
 
 /* ---------------- 语音识别（Web Speech，可用则用）--------------- */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-// 苹果(iPhone/iPad)对网页语音识别支持很差，统一改用键盘上的话筒
-const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1);
-const CAN_VOICE = !!SR && !IS_IOS;
 let recog=null, recording=false;
+function voiceIdleLabel(){ return SR ? '🎤 点一下说话，说完再点一下结束' : '⌨️ 点这里→用键盘上的话筒 🎤 说话'; }
+function keyboardTip(prefix){
+  $('#hint').innerHTML = (prefix||'👉 ') + '点开下面的「<b>备注</b>」框，再点手机<b>键盘上的话筒 🎤</b> 说话，说完一样自动填好。';
+  $('#note').focus();
+}
+function endVoice(){ recording=false; const b=$('#voiceBtn'); b.classList.remove('rec'); b.textContent=voiceIdleLabel(); }
 function startVoice(){
-  const btn=$('#voiceBtn'), hint=$('#hint');
-  if(!CAN_VOICE){
-    hint.innerHTML = '👉 点开下面的<b>「备注」框</b>，再点手机<b>键盘上的话筒 🎤</b> 说话，说完自动帮你填好金额和分类。';
-    $('#note').focus();
-    return;
-  }
-  if(recording){ recog && recog.stop(); return; }
-  recog = new SR();
+  const btn=$('#voiceBtn');
+  if(!SR){ keyboardTip(); return; }                 // 浏览器完全不支持语音
+  if(recording){ recog && recog.stop(); return; }   // 再点一下 = 结束说话
+  try { recog = new SR(); } catch(e){ keyboardTip('这台设备不让网页直接录音，'); return; }
   recog.lang='zh-CN'; recog.interimResults=true; recog.continuous=false;
-  recording=true; btn.classList.add('rec'); btn.textContent='🔴 松开结束…（正在听）';
   let finalText='';
+  recording=true; btn.classList.add('rec'); btn.textContent='🔴 正在听…（说完点我结束）';
   recog.onresult = e => {
     let t=''; for(let i=0;i<e.results.length;i++) t+=e.results[i][0].transcript;
-    finalText=t; $('#note').value=t;
-    const p=parseText(t); applyParse(p, true);
+    finalText=t; $('#note').value=t; applyParse(parseText(t), true);
   };
-  recog.onerror = ()=>{ hint.innerHTML='没听清，可以再试，或直接打字。'; };
-  recog.onend = ()=>{ recording=false; btn.classList.remove('rec'); btn.textContent='🎤 长按说话，自动填好（也可直接打字）';
-    if(finalText){ const p=parseText(finalText); applyParse(p, false); } };
-  recog.start();
+  recog.onerror = () => { endVoice(); keyboardTip('这台设备不让网页直接录音，'); };  // 苹果加桌面后常见
+  recog.onend   = () => { endVoice(); if(finalText) applyParse(parseText(finalText), false); };
+  try { recog.start(); } catch(e){ endVoice(); keyboardTip('这台设备不让网页直接录音，'); }
 }
 
 /* ---------------- 记账面板状态 --------------- */
@@ -304,8 +301,7 @@ $('#mask2').onclick=()=>{ if(LS.me){ $('#mask2').classList.remove('on'); $('#she
 $('#segOut').onclick=()=>{ cur.kind='out'; syncSeg(); validate(); };
 $('#segIn').onclick=()=>{ cur.kind='in'; syncSeg(); validate(); };
 $('#voiceBtn').onclick=startVoice;
-// 按设备设置按钮文案：苹果直接引导键盘话筒
-$('#voiceBtn').textContent = CAN_VOICE ? '🎤 点一下开始说，说完再点一下' : '⌨️ 点这里→用键盘上的话筒 🎤 说话';
+$('#voiceBtn').textContent = voiceIdleLabel();  // 支持语音就显示“点一下说话”，否则引导键盘话筒
 $('#amt').oninput=e=>{ cur.amount=parseFloat(e.target.value); validate(); };
 $('#note').oninput=e=>{ const t=e.target.value; cur.note=t; const p=parseText(t); if(p.amount!=null && !$('#amt').value){ $('#amt').value=p.amount; cur.amount=p.amount; } if(p.kind && p.kind!==cur.kind){ cur.kind=p.kind; syncSeg(); } cur.cat=p.cat; renderCats(); validate(); };
 $('#save').onclick=saveRecord;
