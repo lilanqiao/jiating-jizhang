@@ -156,8 +156,14 @@ function parseText(raw){
 
 /* ---------------- 语音识别（Web Speech，可用则用）--------------- */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && (navigator.maxTouchPoints||0)>1);
+const IS_STANDALONE = window.navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+const IOS_APP = IS_IOS && IS_STANDALONE;   // 苹果“加到桌面”后网页语音被系统禁用，改用系统键盘听写
 let recog=null, recording=false;
-function voiceIdleLabel(){ return SR ? '🎤 点一下说话，说完再点一下结束' : '⌨️ 点这里→用键盘上的话筒 🎤 说话'; }
+function voiceIdleLabel(){
+  if(IOS_APP) return '🎤 点这里说话';
+  return SR ? '🎤 点一下说话，说完再点一下结束' : '⌨️ 点这里→用键盘上的话筒 🎤 说话';
+}
 function keyboardTip(prefix){
   $('#hint').innerHTML = (prefix||'👉 ') + '点开下面的「<b>备注</b>」框，再点手机<b>键盘上的话筒 🎤</b> 说话，说完一样自动填好。';
   $('#note').focus();
@@ -165,6 +171,11 @@ function keyboardTip(prefix){
 function endVoice(){ recording=false; const b=$('#voiceBtn'); b.classList.remove('rec'); b.textContent=voiceIdleLabel(); }
 function startVoice(){
   const btn=$('#voiceBtn');
+  if(IOS_APP){   // 苹果桌面App：同步聚焦弹出键盘（必须在点击手势内），用系统键盘话筒听写
+    $('#note').focus();
+    $('#hint').innerHTML='👆 键盘弹出后，点键盘上的<b>话筒 🎤</b> 直接说，说完自动填好金额和分类。';
+    return;
+  }
   if(!SR){ keyboardTip(); return; }                 // 浏览器完全不支持语音
   if(recording){ recog && recog.stop(); return; }   // 再点一下 = 结束说话
   try { recog = new SR(); } catch(e){ keyboardTip('这台设备不让网页直接录音，'); return; }
