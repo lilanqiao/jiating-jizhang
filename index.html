@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e7a5f">
+<title>家庭记账</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="家庭记账">
+<style>
+:root{
+  --bg:#f4f6f5; --card:#ffffff; --ink:#1c2321; --sub:#6b7a75;
+  --green:#0e7a5f; --green-d:#0a5f4a; --red:#c0392b; --line:#e6ebe9;
+  --shadow:0 2px 10px rgba(0,0,0,.06);
+  --safe-b:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;overscroll-behavior-y:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select{font-family:inherit;font-size:16px}
+
+/* ---------- top bar ---------- */
+header{position:sticky;top:0;z-index:20;background:linear-gradient(135deg,var(--green),var(--green-d));color:#fff;padding:calc(env(safe-area-inset-top,0px) + 14px) 16px 14px}
+.hrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.htitle{font-size:17px;font-weight:600;letter-spacing:.5px}
+.who{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.16);padding:5px 10px;border-radius:999px;font-size:14px}
+.who .dot{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff}
+.summary{display:flex;gap:12px;margin-top:14px}
+.scard{flex:1;background:rgba(255,255,255,.14);border-radius:14px;padding:10px 12px}
+.scard .k{font-size:12px;opacity:.85}
+.scard .v{font-size:20px;font-weight:700;margin-top:2px}
+
+/* ---------- list ---------- */
+main{padding:14px 14px 120px}
+.daygroup{margin-bottom:16px}
+.dayhead{display:flex;justify-content:space-between;font-size:13px;color:var(--sub);padding:2px 6px 8px}
+.item{display:flex;align-items:center;gap:12px;background:var(--card);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow);margin-bottom:8px}
+.item .emoji{width:40px;height:40px;border-radius:11px;background:#eef4f1;display:grid;place-items:center;font-size:20px;flex:none}
+.item .mid{flex:1;min-width:0}
+.item .note{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .meta{font-size:12px;color:var(--sub);margin-top:2px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.pill{background:#eef4f1;color:var(--green-d);border-radius:999px;padding:1px 8px;font-size:11px}
+.pill.person{background:#eaf1fb;color:#2c5aa0}
+.amt{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.amt.in{color:var(--green)}
+.amt.out{color:var(--ink)}
+.empty{text-align:center;color:var(--sub);padding:60px 20px}
+.empty .big{font-size:44px;margin-bottom:10px}
+
+/* ---------- FAB ---------- */
+.fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(22px + var(--safe-b));z-index:30;
+  width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-d));
+  color:#fff;font-size:30px;box-shadow:0 8px 22px rgba(14,122,95,.45);display:grid;place-items:center}
+.fab:active{transform:translateX(-50%) scale(.94)}
+
+/* ---------- sheet ---------- */
+.mask{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:40;opacity:0;pointer-events:none;transition:.2s}
+.mask.on{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:50;background:var(--card);border-radius:22px 22px 0 0;
+  padding:18px 18px calc(18px + var(--safe-b));transform:translateY(110%);transition:transform .28s cubic-bezier(.2,.8,.2,1);max-height:92vh;overflow:auto}
+.sheet.on{transform:translateY(0)}
+.sheet h3{margin:2px 0 14px;font-size:17px;text-align:center}
+.seg{display:flex;background:#eef1f0;border-radius:12px;padding:4px;margin-bottom:14px}
+.seg button{flex:1;padding:9px;border-radius:9px;font-weight:600;color:var(--sub)}
+.seg button.act{background:#fff;color:var(--ink);box-shadow:var(--shadow)}
+.seg button.act.out{color:var(--red)}
+.seg button.act.in{color:var(--green)}
+
+.voicebtn{width:100%;background:#eef4f1;border:1.5px dashed var(--green);color:var(--green-d);border-radius:14px;
+  padding:16px;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px}
+.voicebtn.rec{background:#fdecea;border-color:var(--red);color:var(--red);animation:pulse 1.2s infinite}
+@keyframes pulse{50%{opacity:.55}}
+
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;color:var(--sub);margin-bottom:6px}
+.field input,.field select{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.amtin{font-size:26px;font-weight:700;text-align:center}
+.cats{display:flex;flex-wrap:wrap;gap:8px}
+.cat{border:1px solid var(--line);border-radius:12px;padding:8px 10px;font-size:13px;display:flex;align-items:center;gap:5px;background:#fff}
+.cat.act{border-color:var(--green);background:#eef4f1;color:var(--green-d);font-weight:600}
+.hint{font-size:12px;color:var(--sub);text-align:center;margin:6px 0 12px;min-height:16px}
+.hint b{color:var(--green-d)}
+.save{width:100%;padding:15px;border-radius:14px;background:linear-gradient(135deg,var(--green),var(--green-d));color:#fff;font-size:16px;font-weight:700;margin-top:4px}
+.save:disabled{opacity:.5}
+
+/* ---------- who picker ---------- */
+.people{display:flex;flex-direction:column;gap:10px;margin:8px 0 4px}
+.person-row{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.person-row .dot{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700}
+.linkbtn{background:none;color:var(--sub);font-size:13px;text-decoration:underline;padding:6px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hrow">
+    <div class="htitle">🏠 家庭记账</div>
+    <button class="who" id="whoBtn"><span class="dot" id="whoDot">?</span><span id="whoName">选择</span></button>
+  </div>
+  <div class="summary">
+    <div class="scard"><div class="k">本月支出</div><div class="v" id="mOut">¥0</div></div>
+    <div class="scard"><div class="k">本月收入</div><div class="v" id="mIn">¥0</div></div>
+    <div class="scard"><div class="k">结余</div><div class="v" id="mNet">¥0</div></div>
+  </div>
+</header>
+
+<main id="list"></main>
+
+<button class="fab" id="fab">＋</button>
+
+<!-- add sheet -->
+<div class="mask" id="mask"></div>
+<div class="sheet" id="sheet">
+  <h3>记一笔</h3>
+  <div class="seg">
+    <button id="segOut" class="act out">支出</button>
+    <button id="segIn">收入</button>
+  </div>
+
+  <button class="voicebtn" id="voiceBtn">🎤 长按说话，自动填好（也可直接打字）</button>
+  <div class="hint" id="hint">例：中午吃饭花了 38 &nbsp;·&nbsp; 发工资 8000</div>
+
+  <div class="field">
+    <label>金额</label>
+    <input class="amtin" id="amt" type="number" inputmode="decimal" placeholder="0.00">
+  </div>
+  <div class="field">
+    <label>分类</label>
+    <div class="cats" id="cats"></div>
+  </div>
+  <div class="field">
+    <label>备注</label>
+    <input id="note" type="text" placeholder="写点什么…">
+  </div>
+  <button class="save" id="save" disabled>保存</button>
+</div>
+
+<!-- who sheet -->
+<div class="mask" id="mask2"></div>
+<div class="sheet" id="sheet2">
+  <h3>这台手机是谁在用？</h3>
+  <div class="people" id="people"></div>
+  <div class="hint">选好后这台手机记的账都会自动记在这个人名下。<br>换人？随时点右上角头像切换。</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="sync.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
