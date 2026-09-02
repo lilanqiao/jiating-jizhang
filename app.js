@@ -231,11 +231,14 @@ function saveRecord(){
   if(!me){ openWho(); return; }
   const amt = parseFloat($('#amt').value);
   if(!(amt>0) || !cur.cat) return;
+  const rawText = $('#note').value.trim();
+  const shortNote = (condenseNote(rawText) || cur.cat).slice(0, 12); // 列表显示的精简标题
   const rec = {
     id: Date.now()+'-'+Math.random().toString(36).slice(2,6),
     kind: cur.kind, amount: amt, cat: cur.cat,
-    note: $('#note').value.trim() || cur.cat,
-    creatorId: me,           // ← 谁记的，自动记录
+    note: shortNote,                 // 短标题（列表用）
+    raw: rawText || shortNote,       // 你当时说的原话（详情用）
+    creatorId: me,                   // ← 谁记的，自动记录
     ts: Date.now(),
     synced: false,
   };
@@ -287,15 +290,35 @@ function render(){
     html+='</div>';
   });
   list.innerHTML=html;
-  // 长按删除
+  // 点一条 → 看详情
   list.querySelectorAll('.item').forEach(el=>{
-    let timer;
-    const start=()=>{ timer=setTimeout(()=>{ if(confirm('删除这条记录？')){ const id=el.dataset.id; records=records.filter(r=>r.id!==id); LS.save(records); render(); if(window.Sync&&Sync.enabled) Sync.remove(id); } },550); };
-    const cancel=()=>clearTimeout(timer);
-    el.addEventListener('touchstart',start,{passive:true}); el.addEventListener('touchend',cancel);
-    el.addEventListener('mousedown',start); el.addEventListener('mouseup',cancel); el.addEventListener('mouseleave',cancel);
+    el.onclick=()=>{ const r=records.find(x=>x.id===el.dataset.id); if(r) openDetail(r); };
   });
 }
+
+/* ---------------- 详情页 --------------- */
+function openDetail(rec){
+  const c=CATS[rec.kind].find(x=>x.k===rec.cat)||{e:'📦'};
+  const p=memberById(rec.creatorId);
+  const d=new Date(rec.ts);
+  const dt=`${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  $('#detailBody').innerHTML =
+    `<div class="dAmt ${rec.kind==='in'?'in':'out'}">${rec.kind==='in'?'+':'-'}${yuan(rec.amount)}</div>
+     <div class="dRow"><span>类型</span><b>${rec.kind==='in'?'收入':'支出'}</b></div>
+     <div class="dRow"><span>分类</span><b>${c.e} ${rec.cat}</b></div>
+     <div class="dRow"><span>记账人</span><b>${p.name}</b></div>
+     <div class="dRow"><span>时间</span><b>${dt}</b></div>
+     <div class="dRaw"><div class="dRawLabel">当时说的话</div><div class="dRawText">${esc(rec.raw||rec.note)}</div></div>`;
+  $('#detailDel').onclick=()=>{
+    if(confirm('删除这一笔？')){
+      records=records.filter(r=>r.id!==rec.id); LS.save(records);
+      if(window.Sync&&Sync.enabled) Sync.remove(rec.id);
+      closeDetail(); render();
+    }
+  };
+  $('#mask3').classList.add('on'); $('#sheet3').classList.add('on');
+}
+function closeDetail(){ $('#mask3').classList.remove('on'); $('#sheet3').classList.remove('on'); }
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function hex2rgba(h,a){ const n=parseInt(h.slice(1),16); return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`; }
 
@@ -324,6 +347,7 @@ $('#fab').onclick=()=>{ if(!LS.me){ openWho(); } else openSheet(); };
 $('#mask').onclick=closeSheet;
 $('#whoBtn').onclick=openWho;
 $('#mask2').onclick=()=>{ if(LS.me){ $('#mask2').classList.remove('on'); $('#sheet2').classList.remove('on'); } };
+$('#mask3').onclick=closeDetail;
 $('#segOut').onclick=()=>{ cur.kind='out'; syncSeg(); validate(); };
 $('#segIn').onclick=()=>{ cur.kind='in'; syncSeg(); validate(); };
 $('#voiceBtn').onclick=startVoice;

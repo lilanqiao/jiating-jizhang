@@ -6,7 +6,8 @@ create table if not exists public.records (
   kind       text not null,            -- 'in' 收入 / 'out' 支出
   amount     numeric not null,
   cat        text,                     -- 分类
-  note       text,                     -- 精简后的备注
+  note       text,                     -- 精简后的短标题
+  raw        text,                     -- 当时说的原话（详情用）
   creator_id text,                     -- 谁记的：a=爸爸 b=妈妈 c=宝贝
   ts         bigint,                   -- 时间戳(毫秒)
   book       text not null default 'home',  -- 家庭账本ID
