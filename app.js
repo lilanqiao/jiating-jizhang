@@ -267,6 +267,25 @@ function openEditSheet(rec){
   $('#mask').classList.add('on'); $('#sheet').classList.add('on');
 }
 
+/* ---------------- 列表条目 helper --------------- */
+const isFixed = r => String(r.id).startsWith('recur-');   // 定期自动生成的固定支出
+function itemHTML(r){
+  const c=CATS[r.kind].find(x=>x.k===r.cat)||{e:'📦'};
+  const p=memberById(r.creatorId); const nc=r.noCount;
+  return `<div class="item" data-id="${r.id}">
+    <div class="emoji">${nc?'↩️':c.e}</div>
+    <div class="mid"><div class="note">${esc(r.note)}</div>
+      <div class="meta">${nc?'<span class="pill nocount">不计入</span>':`<span class="pill">${r.cat}</span>`}
+      <span class="pill person" style="background:${hex2rgba(p.color,.12)};color:${p.color}">${p.name}</span>
+      <span>${new Date(r.ts).getHours()}:${pad(new Date(r.ts).getMinutes())}</span></div>
+    </div>
+    <div class="amt ${nc?'nocount':(r.kind==='in'?'in':'out')}">${r.kind==='in'?'+':'-'}${yuan(r.amount)}</div>
+  </div>`;
+}
+function bindItems(container){
+  container.querySelectorAll('.item').forEach(el=>{ el.onclick=()=>{ const r=records.find(x=>x.id===el.dataset.id); if(r) openDetail(r); }; });
+}
+
 /* ---------------- 渲染列表 + 月度汇总 --------------- */
 function render(){
   const me=LS.me;
@@ -282,36 +301,38 @@ function render(){
 
   const list=$('#list');
   if(!records.length){ list.innerHTML=`<div class="empty"><div class="big">🪙</div>还没有记账<br>点下面绿色 ＋ 说一句话试试</div>`; return; }
-  // 按天分组
-  const groups={};
-  records.forEach(r=>{ const k=ymd(r.ts); (groups[k]=groups[k]||[]).push(r); });
+
   let html='';
+  // 本月固定支出，收成一个小条（不铺进每天流水）
+  const fixedThis = records.filter(r=>isFixed(r) && !r.noCount && ymd(r.ts).slice(0,7)===mk);
+  let fixedOut=0; fixedThis.forEach(r=>{ if(r.kind==='out') fixedOut+=r.amount; });
+  if(fixedThis.length){
+    html+=`<div class="fixedbar" id="fixedBar"><div><div class="fb-t">🔒 本月固定支出</div><div class="fb-s">房贷 / 保险 / 话费 等 ${fixedThis.length} 项 · 已算进总支出</div></div><div class="fb-r">${yuan(fixedOut)} ›</div></div>`;
+  }
+  // 每天流水：只放手动记的日常账（不含定期）
+  const daily = records.filter(r=>!isFixed(r));
+  const groups={};
+  daily.forEach(r=>{ const k=ymd(r.ts); (groups[k]=groups[k]||[]).push(r); });
   Object.keys(groups).sort().reverse().forEach(k=>{
     const arr=groups[k];
     let dOut=0,dIn=0; arr.forEach(r=>{ if(!r.noCount){ r.kind==='out'?dOut+=r.amount:dIn+=r.amount; } });
     html+=`<div class="daygroup"><div class="dayhead"><span>${dayLabel(k)}</span><span>${dIn?'收 '+yuan(dIn)+'　':''}支 ${yuan(dOut)}</span></div>`;
-    arr.forEach(r=>{
-      const c=CATS[r.kind].find(x=>x.k===r.cat)||{e:'📦'};
-      const p=memberById(r.creatorId);
-      const nc=r.noCount;
-      html+=`<div class="item" data-id="${r.id}">
-        <div class="emoji">${nc?'↩️':c.e}</div>
-        <div class="mid"><div class="note">${esc(r.note)}</div>
-          <div class="meta">${nc?'<span class="pill nocount">不计入</span>':`<span class="pill">${r.cat}</span>`}
-          <span class="pill person" style="background:${hex2rgba(p.color,.12)};color:${p.color}">${p.name}</span>
-          <span>${new Date(r.ts).getHours()}:${pad(new Date(r.ts).getMinutes())}</span></div>
-        </div>
-        <div class="amt ${nc?'nocount':(r.kind==='in'?'in':'out')}">${r.kind==='in'?'+':'-'}${yuan(r.amount)}</div>
-      </div>`;
-    });
+    arr.forEach(r=>{ html+=itemHTML(r); });
     html+='</div>';
   });
   list.innerHTML=html;
-  // 点一条 → 看详情
-  list.querySelectorAll('.item').forEach(el=>{
-    el.onclick=()=>{ const r=records.find(x=>x.id===el.dataset.id); if(r) openDetail(r); };
-  });
+  bindItems(list);
+  const fb=$('#fixedBar'); if(fb) fb.onclick=()=>openListSheet('🔒 本月固定支出', fixedThis);
 }
+/* 通用明细弹层：固定支出、某人明细都用它 */
+function openListSheet(title, recs){
+  $('#listSheetTitle').textContent=title;
+  const body=$('#listSheetBody');
+  body.innerHTML = recs.length ? recs.slice().sort((a,b)=>b.ts-a.ts).map(itemHTML).join('') : '<div class="stat-empty">没有记录</div>';
+  bindItems(body);
+  $('#mask6').classList.add('on'); $('#sheet6').classList.add('on');
+}
+function closeListSheet(){ $('#mask6').classList.remove('on'); $('#sheet6').classList.remove('on'); }
 
 /* ---------------- 详情页 --------------- */
 function openDetail(rec){
@@ -501,8 +522,13 @@ function renderStats(){
       return `<div class="catbar"><div class="cb-top"><span>${c.e} ${cat}</span><span>${yuan(amt)} · ${pct}%</span></div><div class="cb-track"><div class="cb-fill" style="width:${pct}%"></div></div></div>`;
     }).join('');
   $('#statPeople').innerHTML = MEMBERS.map(m=>{ const s=perMap[m.id]||{out:0,inc:0};
-    return `<div class="pstat"><div class="pn"><span class="dot" style="background:${m.color}">${m.name[0]}</span>${m.name}</div><div class="pv">支 ${yuan(s.out)}　收 ${yuan(s.inc)}</div></div>`;
+    return `<div class="pstat" data-uid="${m.id}"><div class="pn"><span class="dot" style="background:${m.color}">${m.name[0]}</span>${m.name}</div><div class="pv">支 ${yuan(s.out)}　收 ${yuan(s.inc)} ›</div></div>`;
   }).join('');
+  // 点某个人 → 看他这个时段的明细
+  $('#statPeople').querySelectorAll('.pstat').forEach(el=>{
+    el.onclick=()=>{ const uid=el.dataset.uid; const m=memberById(uid);
+      openListSheet(`${m.name}的明细`, records.filter(r=>!r.noCount && r.creatorId===uid && statInRange(r))); };
+  });
 }
 function statStep(dir){
   if(statState.mode==='month'){ statState.m+=dir; if(statState.m<0){statState.m=11;statState.y--;} if(statState.m>11){statState.m=0;statState.y++;} }
@@ -511,8 +537,9 @@ function statStep(dir){
 }
 
 /* ---------------- 事件绑定 --------------- */
-$('#statBtn').onclick=openStats; $('#statLink').onclick=openStats; $('#summary').onclick=openStats;
+$('#statBtn').onclick=openStats; $('#summary').onclick=openStats;
 $('#mask5').onclick=closeStats;
+$('#mask6').onclick=closeListSheet;
 $('#statPrev').onclick=()=>statStep(-1);
 $('#statNext').onclick=()=>statStep(1);
 $('#statMonthBtn').onclick=()=>{ statState.mode='month'; renderStats(); };

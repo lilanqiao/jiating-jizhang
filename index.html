@@ -138,6 +138,15 @@ main{padding:14px 14px 120px}
 .pstat .pn .dot{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:12px;font-weight:700}
 .pstat .pv{font-size:13px;text-align:right;font-variant-numeric:tabular-nums}
 .stat-empty{color:var(--sub);font-size:13px;text-align:center;padding:16px 0}
+.pstat{cursor:pointer}
+/* 固定支出小条 */
+.fixedbar{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px dashed var(--line);border-radius:14px;padding:12px 14px;margin-bottom:14px;cursor:pointer}
+.fixedbar .fb-t{font-weight:700;font-size:15px}
+.fixedbar .fb-s{font-size:12px;color:var(--sub);margin-top:2px}
+.fixedbar .fb-r{font-weight:700;color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums}
+/* 叠层：详情盖在明细页之上，记一笔/编辑盖在最上 */
+#mask3{z-index:61}#sheet3{z-index:62}
+#mask{z-index:63}#sheet{z-index:64}
 </style>
 </head>
 <body>
@@ -156,7 +165,6 @@ main{padding:14px 14px 120px}
     <div class="scard"><div class="k">本月收入</div><div class="v" id="mIn">¥0</div></div>
     <div class="scard"><div class="k">结余</div><div class="v" id="mNet">¥0</div></div>
   </div>
-  <div style="text-align:center;font-size:12px;opacity:.85;margin-top:8px;cursor:pointer" id="statLink">📊 点这里看统计（月度/年度 · 花在哪 · 谁花的）›</div>
 </header>
 
 <main id="list"></main>
@@ -223,6 +231,13 @@ main{padding:14px 14px 120px}
   <div id="statCats"></div>
   <div class="stat-sec">按成员（谁花的/谁挣的）</div>
   <div id="statPeople"></div>
+</div>
+
+<!-- detail-list sheet (固定支出/某人明细) -->
+<div class="mask" id="mask6"></div>
+<div class="sheet" id="sheet6">
+  <h3 id="listSheetTitle">明细</h3>
+  <div id="listSheetBody"></div>
 </div>
 
 <!-- recurring sheet -->
