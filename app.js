@@ -447,7 +447,7 @@ function renderRecurList(){
     const row=document.createElement('div'); row.className='recur-item';
     row.innerHTML=`<div class="ri-body"><div class="ri-main">${esc(d.name)} ${yuan(d.amount)}</div><div class="ri-sub">${schedText(d)} · 点这里改</div></div><button class="ri-del">删除</button>`;
     row.querySelector('.ri-body').onclick=()=>openRecurForm(d);   // 点项目 → 编辑
-    row.querySelector('.ri-del').onclick=()=>{ if(confirm('删除这个定期项目？(已生成的记录保留)')){ recurDefs=recurDefs.filter(x=>x.id!==d.id); REC.save(recurDefs); renderRecurList(); } };
+    row.querySelector('.ri-del').onclick=()=>{ if(confirm('删除这个定期项目？(已生成的记录保留)')){ recurDefs=recurDefs.filter(x=>x.id!==d.id); REC.save(recurDefs); if(window.Sync&&Sync.enabled) Sync.removeDef(d.id); renderRecurList(); } };
     box.appendChild(row);
   });
 }
@@ -486,13 +486,16 @@ function saveRecurDef(){
   if(!(amt>0)){ alert('填一下金额'); return; }
   const fields={ name, amount:amt, kind:rForm.kind, cat:$('#rCat').value, period:rForm.period,
     day:parseInt($('#rDay').value,10), month:parseInt($('#rMonth').value||'1',10) };
+  let savedDef;
   if(editingRecurId){                          // 编辑：只改未来，已生成的记录不变
-    const d=recurDefs.find(x=>x.id===editingRecurId); if(d) Object.assign(d, fields);
+    savedDef=recurDefs.find(x=>x.id===editingRecurId); if(savedDef) Object.assign(savedDef, fields);
   } else {
-    recurDefs.push(Object.assign({ id:Date.now()+'-'+Math.random().toString(36).slice(2,5),
-      creatorId:LS.me||'a', startTs:Date.now() }, fields));
+    savedDef=Object.assign({ id:Date.now()+'-'+Math.random().toString(36).slice(2,5),
+      creatorId:LS.me||'a', startTs:Date.now() }, fields);
+    recurDefs.push(savedDef);
   }
   REC.save(recurDefs);
+  if(savedDef && window.Sync && Sync.enabled) Sync.pushDef(savedDef);   // 设定同步到云端
   runRecurring(); render();
   $('#recurForm').hidden=true; renderRecurList();
 }
@@ -570,7 +573,7 @@ $('#save').onclick=saveRecord;
 /* ---------------- 启动 --------------- */
 /* 强力自动更新：绕过iOS的缓存顽疾。每次打开都问服务器版本号，
    有新版就清缓存+注销SW+刷新，桌面App从此不会再卡旧版。 */
-const APP_VERSION = 20;
+const APP_VERSION = 21;
 (function forceUpdate(){
   try{
     fetch('version.json?_='+Date.now(), {cache:'no-store'})
@@ -616,12 +619,27 @@ async function refreshFromServer(){
   runRecurring();                     // 拉到最新后再补记，靠确定性id去重不会重复
   render();
 }
+async function refreshDefsFromServer(){
+  const serverDefs = await Sync.pullDefs();
+  if(!serverDefs) return;
+  const map = new Map(serverDefs.map(d=>[d.id, d]));
+  recurDefs.forEach(d=>{ if(!map.has(d.id)) map.set(d.id, d); });  // 本地新加的也保留
+  recurDefs = Array.from(map.values());
+  REC.save(recurDefs);
+  // 把本地有、云端还没有的推上去
+  serverDefs && recurDefs.forEach(d=>{ if(!serverDefs.find(s=>s.id===d.id)) Sync.pushDef(d); });
+  if(runRecurring()) LS.save(records);
+  render();
+  if($('#sheet4').classList.contains('on')) renderRecurList();
+}
 async function syncBoot(){
   if(!(window.Sync && Sync.init())) return;   // 未配置则单机运行
   // 先把离线期间记的补推上去
   for(const r of records.filter(r=>!r.synced)){ if(await Sync.push(r)) r.synced=true; }
   LS.save(records);
-  await refreshFromServer();                   // 拉全家最新
+  await refreshFromServer();                   // 拉全家最新账
+  await refreshDefsFromServer();               // 拉定期设定（重装/换机不丢）
   Sync.subscribe(refreshFromServer);           // 别人记账时实时刷新
+  Sync.subscribeDefs(refreshDefsFromServer);   // 定期设定变化时实时刷新
 }
 syncBoot();

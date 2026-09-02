@@ -45,5 +45,34 @@
       .subscribe();
   };
 
+  /* 定期设定（recur_defs）云同步：让固定支出的“设定”跨设备共享、重装不丢 */
+  const defToRow = (d, book) => ({ id: d.id, book, name: d.name, amount: d.amount, kind: d.kind, cat: d.cat, period: d.period, day: d.day, month: d.month, creator_id: d.creatorId, start_ts: d.startTs });
+  const defFromRow = x => ({ id: x.id, name: x.name, amount: Number(x.amount), kind: x.kind, cat: x.cat, period: x.period, day: Number(x.day), month: Number(x.month), creatorId: x.creator_id, startTs: Number(x.start_ts) });
+
+  Sync.pushDef = async function (d) {
+    if (!this.enabled) return false;
+    const { error } = await this.client.from('recur_defs').upsert(defToRow(d, this.book));
+    if (error) { console.warn('pushDef', error.message); return false; }
+    return true;
+  };
+  Sync.removeDef = async function (id) {
+    if (!this.enabled) return false;
+    const { error } = await this.client.from('recur_defs').delete().eq('id', id);
+    return !error;
+  };
+  Sync.pullDefs = async function () {
+    if (!this.enabled) return null;
+    const { data, error } = await this.client.from('recur_defs').select('*').eq('book', this.book);
+    if (error) { console.warn('pullDefs', error.message); return null; }
+    return data.map(defFromRow);
+  };
+  Sync.subscribeDefs = function (onChange) {
+    if (!this.enabled) return;
+    this.client.channel('defs-' + this.book)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'recur_defs', filter: 'book=eq.' + this.book },
+        () => { onChange && onChange(); })
+      .subscribe();
+  };
+
   window.Sync = Sync;
 })();

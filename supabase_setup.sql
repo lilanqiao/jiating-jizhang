@@ -26,3 +26,16 @@ create policy "family all" on public.records
 
 -- 开启实时同步（谁记一笔，三部手机秒同步）
 alter publication supabase_realtime add table public.records;
+
+-- 定期设定表（固定支出的“设定”，跨设备共享、重装不丢）
+create table if not exists public.recur_defs (
+  id text primary key,
+  book text not null default 'home',
+  name text, amount numeric, kind text, cat text,
+  period text, day int, month int, creator_id text, start_ts bigint,
+  created_at timestamptz default now()
+);
+alter table public.recur_defs enable row level security;
+drop policy if exists "family all defs" on public.recur_defs;
+create policy "family all defs" on public.recur_defs for all using (true) with check (true);
+alter publication supabase_realtime add table public.recur_defs;
