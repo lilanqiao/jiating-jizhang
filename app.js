@@ -94,7 +94,7 @@ function extractAmount(text){
   return best;
 }
 function guessKind(text){
-  if(/(工资|薪水|奖金|收入|发了|收到|进账|报销|还我|红包|提成|分红|利息|收益|兼职|外快)/.test(text)) return 'in';
+  if(/(工资|薪水|薪资|奖金|年终|收入|发了|发的|收到|到账|进账|报销|退款|还我|还钱|红包|提成|分红|利息|收益|兼职|外快|中奖|卖了|卖出|转入|补助|奖学金)/.test(text)) return 'in';
   return 'out';
 }
 function guessCat(text, kind){
@@ -293,7 +293,7 @@ $('#segOut').onclick=()=>{ cur.kind='out'; syncSeg(); validate(); };
 $('#segIn').onclick=()=>{ cur.kind='in'; syncSeg(); validate(); };
 $('#voiceBtn').onclick=startVoice;
 $('#amt').oninput=e=>{ cur.amount=parseFloat(e.target.value); validate(); };
-$('#note').oninput=e=>{ const t=e.target.value; cur.note=t; const p=parseText(t); if(p.amount!=null && !$('#amt').value){ $('#amt').value=p.amount; cur.amount=p.amount; } cur.cat=p.cat; renderCats(); validate(); };
+$('#note').oninput=e=>{ const t=e.target.value; cur.note=t; const p=parseText(t); if(p.amount!=null && !$('#amt').value){ $('#amt').value=p.amount; cur.amount=p.amount; } if(p.kind && p.kind!==cur.kind){ cur.kind=p.kind; syncSeg(); } cur.cat=p.cat; renderCats(); validate(); };
 $('#save').onclick=saveRecord;
 
 /* ---------------- 启动 --------------- */
