@@ -570,7 +570,7 @@ $('#save').onclick=saveRecord;
 /* ---------------- 启动 --------------- */
 /* 强力自动更新：绕过iOS的缓存顽疾。每次打开都问服务器版本号，
    有新版就清缓存+注销SW+刷新，桌面App从此不会再卡旧版。 */
-const APP_VERSION = 19;
+const APP_VERSION = 20;
 (function forceUpdate(){
   try{
     fetch('version.json?_='+Date.now(), {cache:'no-store'})
@@ -580,7 +580,10 @@ const APP_VERSION = 19;
           Promise.all([
             (self.caches&&caches.keys)?caches.keys().then(ks=>Promise.all(ks.map(k=>caches.delete(k)))):Promise.resolve(),
             navigator.serviceWorker?navigator.serviceWorker.getRegistrations().then(rs=>Promise.all(rs.map(r=>r.unregister()))):Promise.resolve()
-          ]).catch(()=>{}).then(()=>location.reload());
+          ]).catch(()=>{}).then(()=>{
+            // 关键：带版本号跳转，绕过 iOS 对网页文件的10分钟缓存，强制拉最新
+            location.replace(location.pathname + '?v=' + d.v);
+          });
         }
       }).catch(()=>{});
   }catch(e){}
