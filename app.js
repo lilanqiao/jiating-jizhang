@@ -405,7 +405,8 @@ function renderRecurList(){
   box.innerHTML='';
   recurDefs.forEach(d=>{
     const row=document.createElement('div'); row.className='recur-item';
-    row.innerHTML=`<div><div class="ri-main">${esc(d.name)} ${yuan(d.amount)}</div><div class="ri-sub">${schedText(d)}</div></div><button class="ri-del">删除</button>`;
+    row.innerHTML=`<div class="ri-body"><div class="ri-main">${esc(d.name)} ${yuan(d.amount)}</div><div class="ri-sub">${schedText(d)} · 点这里改</div></div><button class="ri-del">删除</button>`;
+    row.querySelector('.ri-body').onclick=()=>openRecurForm(d);   // 点项目 → 编辑
     row.querySelector('.ri-del').onclick=()=>{ if(confirm('删除这个定期项目？(已生成的记录保留)')){ recurDefs=recurDefs.filter(x=>x.id!==d.id); REC.save(recurDefs); renderRecurList(); } };
     box.appendChild(row);
   });
@@ -418,32 +419,48 @@ function initRecurSelects(){
   const md=$('#rMonth'); if(md && !md.options.length){ for(let i=1;i<=12;i++){ const o=document.createElement('option'); o.value=i; o.textContent=i+'月'; md.appendChild(o);} }
   const dd=$('#rDay'); if(dd && !dd.options.length){ for(let i=1;i<=28;i++){ const o=document.createElement('option'); o.value=i; o.textContent=i+'号'; dd.appendChild(o);} }
 }
-function openRecurForm(){
-  rForm={kind:'out',period:'monthly'};
+let editingRecurId = null;
+function openRecurForm(def){
+  def = (def && def.id) ? def : null;        // 有传项目=编辑，没传=新增
+  editingRecurId = def ? def.id : null;
+  rForm = { kind: def?def.kind:'out', period: def?def.period:'monthly' };
   initRecurSelects(); fillRecurCats();
-  $('#rSegOut').classList.add('act','out'); $('#rSegIn').classList.remove('act','in');
-  $('#rMonthly').classList.add('act'); $('#rYearly').classList.remove('act'); $('#rMonthWrap').hidden=true;
-  $('#rName').value=''; $('#rAmt').value=''; $('#rDay').value='1';
+  // 收/支段
+  $('#rSegOut').classList.toggle('act', rForm.kind==='out'); $('#rSegOut').classList.toggle('out', rForm.kind==='out');
+  $('#rSegIn').classList.toggle('act', rForm.kind==='in');  $('#rSegIn').classList.toggle('in', rForm.kind==='in');
+  // 每月/每年段
+  $('#rMonthly').classList.toggle('act', rForm.period==='monthly');
+  $('#rYearly').classList.toggle('act', rForm.period==='yearly');
+  $('#rMonthWrap').hidden = rForm.period!=='yearly';
+  $('#rName').value = def?def.name:'';
+  $('#rAmt').value  = def?def.amount:'';
+  $('#rDay').value  = def?String(def.day):'1';
+  $('#rMonth').value= def&&def.month?String(def.month):'1';
+  if(def) $('#rCat').value = def.cat;         // 选项已按kind填好，再定位
+  $('#rSave').textContent = def ? '保存修改' : '保存这个定期项目';
   $('#recurForm').hidden=false;
 }
 function saveRecurDef(){
   const name=$('#rName').value.trim(), amt=parseFloat($('#rAmt').value);
   if(!name){ alert('填一下名称，比如“话费”'); return; }
   if(!(amt>0)){ alert('填一下金额'); return; }
-  const me=LS.me||'a';
-  const def={ id:Date.now()+'-'+Math.random().toString(36).slice(2,5), name, amount:amt,
-    kind:rForm.kind, cat:$('#rCat').value, period:rForm.period,
-    day:parseInt($('#rDay').value,10), month:parseInt($('#rMonth').value||'1',10),
-    creatorId:me, startTs:Date.now() };
-  recurDefs.push(def); REC.save(recurDefs);
-  runRecurring(); render();               // 本期若已到点，立即补上
+  const fields={ name, amount:amt, kind:rForm.kind, cat:$('#rCat').value, period:rForm.period,
+    day:parseInt($('#rDay').value,10), month:parseInt($('#rMonth').value||'1',10) };
+  if(editingRecurId){                          // 编辑：只改未来，已生成的记录不变
+    const d=recurDefs.find(x=>x.id===editingRecurId); if(d) Object.assign(d, fields);
+  } else {
+    recurDefs.push(Object.assign({ id:Date.now()+'-'+Math.random().toString(36).slice(2,5),
+      creatorId:LS.me||'a', startTs:Date.now() }, fields));
+  }
+  REC.save(recurDefs);
+  runRecurring(); render();
   $('#recurForm').hidden=true; renderRecurList();
 }
 
 /* ---------------- 事件绑定 --------------- */
 $('#recurBtn').onclick=openRecurring;
 $('#mask4').onclick=closeRecurring;
-$('#recurAddBtn').onclick=openRecurForm;
+$('#recurAddBtn').onclick=()=>openRecurForm();
 $('#rSegOut').onclick=()=>{ rForm.kind='out'; $('#rSegOut').classList.add('act','out'); $('#rSegIn').classList.remove('act','in'); fillRecurCats(); };
 $('#rSegIn').onclick=()=>{ rForm.kind='in'; $('#rSegIn').classList.add('act','in'); $('#rSegOut').classList.remove('act','out'); fillRecurCats(); };
 $('#rMonthly').onclick=()=>{ rForm.period='monthly'; $('#rMonthly').classList.add('act'); $('#rYearly').classList.remove('act'); $('#rMonthWrap').hidden=true; };
