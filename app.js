@@ -94,7 +94,16 @@ function extractAmount(text){
   return best;
 }
 function guessKind(text){
-  if(/(工资|薪水|薪资|奖金|年终|收入|发了|发的|收到|到账|进账|报销|退款|还我|还钱|红包|提成|分红|利息|收益|兼职|外快|中奖|卖了|卖出|转入|补助|奖学金)/.test(text)) return 'in';
+  const t = text;
+  // 明确的收入信号
+  const inRe  = /(工资|薪水|薪资|月薪|底薪|绩效|奖金|年终奖|年终|提成|分红|报销|到账|入账|进账|收到|收了|退款|退回|中奖|卖了|卖出|利息|收益|兼职|外快|私活|稿费|奖学金|养老金|低保|发工资|发的工资|发了工资|转入|入账)/;
+  // 明确的支出信号（注意“发红包/包红包”是支出）
+  const outRe = /(花了|花掉|花销|买|吃|喝|付了|付款|支付|交了|交费|缴|充了|充值|打车|加油|房租|租金|物业|报名|订了|订购|发红包|包红包|随礼|送礼|请客|给了)/;
+  const inHit = inRe.test(t), outHit = outRe.test(t);
+  if(inHit && !outHit) return 'in';
+  if(outHit && !inHit) return 'out';
+  // 都没命中时的笼统兜底：说到“收/进/挣/赚”且没说“花/买/付/给”
+  if(/(收入|进账|收|挣|赚|得了)/.test(t) && !/(花|买|付|交|给|充|租)/.test(t)) return 'in';
   return 'out';
 }
 function guessCat(text, kind){
