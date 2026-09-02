@@ -567,18 +567,33 @@ $('#note').oninput=e=>{ const t=e.target.value; cur.note=t; const p=parseText(t)
 $('#save').onclick=saveRecord;
 
 /* ---------------- 启动 --------------- */
-/* 自动更新：发现新版本就悄悄刷新，桌面App不再卡在旧版 */
+/* 强力自动更新：绕过iOS的缓存顽疾。每次打开都问服务器版本号，
+   有新版就清缓存+注销SW+刷新，桌面App从此不会再卡旧版。 */
+const APP_VERSION = 17;
+(function forceUpdate(){
+  try{
+    fetch('version.json?_='+Date.now(), {cache:'no-store'})
+      .then(r=>r.json())
+      .then(d=>{
+        if(d && d.v && d.v > APP_VERSION){
+          Promise.all([
+            (self.caches&&caches.keys)?caches.keys().then(ks=>Promise.all(ks.map(k=>caches.delete(k)))):Promise.resolve(),
+            navigator.serviceWorker?navigator.serviceWorker.getRegistrations().then(rs=>Promise.all(rs.map(r=>r.unregister()))):Promise.resolve()
+          ]).catch(()=>{}).then(()=>location.reload());
+        }
+      }).catch(()=>{});
+  }catch(e){}
+})();
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').then(reg=>{
     reg.addEventListener('updatefound', ()=>{
       const nw = reg.installing;
       nw && nw.addEventListener('statechange', ()=>{
-        // 装好了新版、且不是首次安装 → 直接刷新用最新
         if(nw.state==='installed' && navigator.serviceWorker.controller){ location.reload(); }
       });
     });
     try{ reg.update(); }catch(e){}
-    setInterval(()=>{ try{ reg.update(); }catch(e){} }, 60000); // 每分钟查一次更新
+    setInterval(()=>{ try{ reg.update(); }catch(e){} }, 60000);
   }).catch(()=>{});
 }
 render();
