@@ -103,6 +103,20 @@ main{padding:14px 14px 120px}
 .dRawLabel{font-size:12px;color:var(--sub);margin-bottom:6px}
 .dRawText{background:#f1f4f3;border-radius:12px;padding:12px 14px;line-height:1.7;color:var(--ink);white-space:pre-wrap;word-break:break-word}
 .delbtn{width:100%;padding:14px;border-radius:14px;background:#fff;border:1px solid var(--red);color:var(--red);font-size:15px;font-weight:700;margin-top:16px}
+
+/* ---------- toggle / recurring ---------- */
+.toggle{display:flex;align-items:center;gap:10px;padding:10px 2px 14px;font-size:14px;color:var(--ink);cursor:pointer}
+.toggle input{width:20px;height:20px;accent-color:var(--green)}
+.pill.nocount{background:#eee;color:#888}
+.amt.nocount{color:#b0b0b0;font-weight:600}
+.recur-item{display:flex;align-items:center;justify-content:space-between;background:#f4f6f5;border-radius:12px;padding:11px 13px;margin-bottom:8px}
+.recur-item .ri-main{font-weight:600}
+.recur-item .ri-sub{font-size:12px;color:var(--sub);margin-top:2px}
+.recur-item .ri-del{color:var(--red);font-size:13px;padding:6px 8px;flex:none}
+.rform .seg.small button{padding:8px;font-size:14px}
+.rform select,.rform input{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.rrow{display:flex;gap:10px}.rrow>*{flex:1}
+.recur-empty{color:var(--sub);font-size:13px;text-align:center;padding:10px 0 4px}
 </style>
 </head>
 <body>
@@ -110,7 +124,10 @@ main{padding:14px 14px 120px}
 <header>
   <div class="hrow">
     <div class="htitle">🏠 家庭记账台</div>
-    <button class="who" id="whoBtn"><span class="dot" id="whoDot">?</span><span id="whoName">选择</span></button>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="who" id="recurBtn">⏱ 定期</button>
+      <button class="who" id="whoBtn"><span class="dot" id="whoDot">?</span><span id="whoName">选择</span></button>
+    </div>
   </div>
   <div class="summary">
     <div class="scard"><div class="k">本月支出</div><div class="v" id="mOut">¥0</div></div>
@@ -147,6 +164,7 @@ main{padding:14px 14px 120px}
     <label>备注</label>
     <input id="note" type="text" placeholder="说一句话，例：中午吃饭花了38">
   </div>
+  <label class="toggle"><input type="checkbox" id="noCount"><span>还款 / 转账（不计入收支统计）</span></label>
   <button class="save" id="save" disabled>保存</button>
 </div>
 
@@ -164,6 +182,29 @@ main{padding:14px 14px 120px}
   <h3>这一笔</h3>
   <div id="detailBody"></div>
   <button class="delbtn" id="detailDel">🗑 删除这一笔</button>
+</div>
+
+<!-- recurring sheet -->
+<div class="mask" id="mask4"></div>
+<div class="sheet" id="sheet4">
+  <h3>⏱ 周期记账</h3>
+  <div class="hint" style="text-align:left;margin:0 0 10px">保险、话费、房租、宽带、会员这种固定自动扣费，设一次，App 到点自动帮你记上，绝不漏。</div>
+  <div id="recurList"></div>
+  <button class="save" id="recurAddBtn" style="background:#fff;border:1px solid var(--green);color:var(--green-d)">＋ 添加一个定期项目</button>
+  <div id="recurForm" class="rform" hidden>
+    <div class="seg" style="margin-top:14px"><button id="rSegOut" class="act out">支出</button><button id="rSegIn">收入</button></div>
+    <div class="field"><label>名称（如：话费、保险、房租）</label><input id="rName" type="text" placeholder="话费"></div>
+    <div class="rrow">
+      <div class="field"><label>金额</label><input id="rAmt" type="number" inputmode="decimal" placeholder="0.00"></div>
+      <div class="field"><label>分类</label><select id="rCat"></select></div>
+    </div>
+    <div class="seg small"><button id="rMonthly" class="act">每月</button><button id="rYearly">每年</button></div>
+    <div class="rrow">
+      <div class="field" id="rMonthWrap" hidden><label>几月</label><select id="rMonth"></select></div>
+      <div class="field"><label>几号</label><select id="rDay"></select></div>
+    </div>
+    <button class="save" id="rSave">保存这个定期项目</button>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>

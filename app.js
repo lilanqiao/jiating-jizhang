@@ -240,6 +240,7 @@ function saveRecord(){
     raw: rawText || shortNote,       // 你当时说的原话（详情用）
     creatorId: me,                   // ← 谁记的，自动记录
     ts: Date.now(),
+    noCount: $('#noCount').checked,  // 还款/转账：不计入收支统计
     synced: false,
   };
   records.unshift(rec);
@@ -260,7 +261,7 @@ function render(){
   // 本月汇总（全家合计）
   const now=new Date(), mk=`${now.getFullYear()}-${pad(now.getMonth()+1)}`;
   let out=0,inc=0;
-  records.forEach(r=>{ if(ymd(r.ts).slice(0,7)===mk){ r.kind==='out'?out+=r.amount:inc+=r.amount; } });
+  records.forEach(r=>{ if(!r.noCount && ymd(r.ts).slice(0,7)===mk){ r.kind==='out'?out+=r.amount:inc+=r.amount; } });
   $('#mOut').textContent=yuan(out); $('#mIn').textContent=yuan(inc);
   $('#mNet').textContent=yuan(inc-out);
 
@@ -272,19 +273,20 @@ function render(){
   let html='';
   Object.keys(groups).sort().reverse().forEach(k=>{
     const arr=groups[k];
-    let dOut=0,dIn=0; arr.forEach(r=>r.kind==='out'?dOut+=r.amount:dIn+=r.amount);
+    let dOut=0,dIn=0; arr.forEach(r=>{ if(!r.noCount){ r.kind==='out'?dOut+=r.amount:dIn+=r.amount; } });
     html+=`<div class="daygroup"><div class="dayhead"><span>${dayLabel(k)}</span><span>${dIn?'收 '+yuan(dIn)+'　':''}支 ${yuan(dOut)}</span></div>`;
     arr.forEach(r=>{
       const c=CATS[r.kind].find(x=>x.k===r.cat)||{e:'📦'};
       const p=memberById(r.creatorId);
+      const nc=r.noCount;
       html+=`<div class="item" data-id="${r.id}">
-        <div class="emoji">${c.e}</div>
+        <div class="emoji">${nc?'↩️':c.e}</div>
         <div class="mid"><div class="note">${esc(r.note)}</div>
-          <div class="meta"><span class="pill">${r.cat}</span>
+          <div class="meta">${nc?'<span class="pill nocount">不计入</span>':`<span class="pill">${r.cat}</span>`}
           <span class="pill person" style="background:${hex2rgba(p.color,.12)};color:${p.color}">${p.name}</span>
           <span>${new Date(r.ts).getHours()}:${pad(new Date(r.ts).getMinutes())}</span></div>
         </div>
-        <div class="amt ${r.kind==='in'?'in':'out'}">${r.kind==='in'?'+':'-'}${yuan(r.amount)}</div>
+        <div class="amt ${nc?'nocount':(r.kind==='in'?'in':'out')}">${r.kind==='in'?'+':'-'}${yuan(r.amount)}</div>
       </div>`;
     });
     html+='</div>';
@@ -308,6 +310,7 @@ function openDetail(rec){
      <div class="dRow"><span>分类</span><b>${c.e} ${rec.cat}</b></div>
      <div class="dRow"><span>记账人</span><b>${p.name}</b></div>
      <div class="dRow"><span>时间</span><b>${dt}</b></div>
+     ${rec.noCount?'<div class="dRow"><span>统计</span><b style="color:#888">↩️ 不计入收支</b></div>':''}
      <div class="dRaw"><div class="dRawLabel">当时说的话</div><div class="dRawText">${esc(rec.raw||rec.note)}</div></div>`;
   $('#detailDel').onclick=()=>{
     if(confirm('删除这一笔？')){
@@ -325,7 +328,7 @@ function hex2rgba(h,a){ const n=parseInt(h.slice(1),16); return `rgba(${n>>16&25
 /* ---------------- 弹层控制 --------------- */
 function openSheet(){
   cur={kind:'out',cat:'',amount:null,note:''};
-  $('#amt').value=''; $('#note').value=''; $('#save').disabled=true;
+  $('#amt').value=''; $('#note').value=''; $('#save').disabled=true; $('#noCount').checked=false;
   $('#hint').innerHTML='例：中午吃饭花了 38 &nbsp;·&nbsp; 发工资 8000';
   syncSeg();
   $('#mask').classList.add('on'); $('#sheet').classList.add('on');
@@ -342,7 +345,111 @@ function openWho(){
   $('#mask2').classList.add('on'); $('#sheet2').classList.add('on');
 }
 
+/* ---------------- 周期记账（自动定期记上，防漏） --------------- */
+const REC = {
+  load(){ try{ return JSON.parse(localStorage.getItem('jz_recurring')||'[]'); }catch{ return []; } },
+  save(v){ localStorage.setItem('jz_recurring', JSON.stringify(v)); },
+};
+let recurDefs = REC.load();
+let rForm = { kind:'out', period:'monthly' };
+
+// 到点自动补记（支持漏开几期后一次性补齐），已生成的用确定性id去重
+function runRecurring(){
+  const now = new Date(); let added=false; const have=new Set(records.map(r=>r.id));
+  for(const d of recurDefs){
+    const start = new Date(d.startTs || now.getTime());
+    if(d.period==='monthly'){
+      let y=start.getFullYear(), m=start.getMonth();
+      for(let i=0;i<24;i++){
+        const due=new Date(y, m, Math.min(d.day,28), 0,0,0);
+        if(due>=start && now>=due){
+          const key=`${y}${pad(m+1)}`, id=`recur-${d.id}-${key}`;
+          if(!have.has(id)){ pushRecur(d,id,due.getTime()); added=true; }
+        }
+        m++; if(m>11){m=0;y++;} if(new Date(y,m,1)>now) break;
+      }
+    } else { // yearly
+      let y=start.getFullYear();
+      for(let i=0;i<5;i++){
+        const due=new Date(y, (d.month||1)-1, Math.min(d.day,28), 0,0,0);
+        if(due>=start && now>=due){
+          const id=`recur-${d.id}-${y}`;
+          if(!have.has(id)){ pushRecur(d,id,due.getTime()); added=true; }
+        }
+        y++; if(new Date(y,0,1)>now) break;
+      }
+    }
+  }
+  if(added){ LS.save(records); }
+  return added;
+}
+function pushRecur(d, id, ts){
+  const rec={ id, kind:d.kind, amount:d.amount, cat:d.cat, note:d.name, raw:d.name+'（定期自动）',
+    creatorId:d.creatorId, ts, noCount:false, synced:false };
+  records.unshift(rec);
+  if(window.Sync && Sync.enabled) Sync.push(rec).then(ok=>{ if(ok){ rec.synced=true; LS.save(records); } });
+}
+
+function openRecurring(){
+  $('#recurForm').hidden=true; renderRecurList();
+  $('#mask4').classList.add('on'); $('#sheet4').classList.add('on');
+}
+function closeRecurring(){ $('#mask4').classList.remove('on'); $('#sheet4').classList.remove('on'); }
+function schedText(d){
+  const t=d.kind==='in'?'收':'支';
+  return d.period==='monthly' ? `每月${d.day}号 · ${t}${d.cat}` : `每年${d.month}月${d.day}号 · ${t}${d.cat}`;
+}
+function renderRecurList(){
+  const box=$('#recurList');
+  if(!recurDefs.length){ box.innerHTML='<div class="recur-empty">还没有定期项目，点下面添加</div>'; return; }
+  box.innerHTML='';
+  recurDefs.forEach(d=>{
+    const row=document.createElement('div'); row.className='recur-item';
+    row.innerHTML=`<div><div class="ri-main">${esc(d.name)} ${yuan(d.amount)}</div><div class="ri-sub">${schedText(d)}</div></div><button class="ri-del">删除</button>`;
+    row.querySelector('.ri-del').onclick=()=>{ if(confirm('删除这个定期项目？(已生成的记录保留)')){ recurDefs=recurDefs.filter(x=>x.id!==d.id); REC.save(recurDefs); renderRecurList(); } };
+    box.appendChild(row);
+  });
+}
+function fillRecurCats(){
+  const sel=$('#rCat'); sel.innerHTML='';
+  CATS[rForm.kind].forEach(c=>{ const o=document.createElement('option'); o.value=c.k; o.textContent=`${c.e} ${c.k}`; sel.appendChild(o); });
+}
+function initRecurSelects(){
+  const md=$('#rMonth'); if(md && !md.options.length){ for(let i=1;i<=12;i++){ const o=document.createElement('option'); o.value=i; o.textContent=i+'月'; md.appendChild(o);} }
+  const dd=$('#rDay'); if(dd && !dd.options.length){ for(let i=1;i<=28;i++){ const o=document.createElement('option'); o.value=i; o.textContent=i+'号'; dd.appendChild(o);} }
+}
+function openRecurForm(){
+  rForm={kind:'out',period:'monthly'};
+  initRecurSelects(); fillRecurCats();
+  $('#rSegOut').classList.add('act','out'); $('#rSegIn').classList.remove('act','in');
+  $('#rMonthly').classList.add('act'); $('#rYearly').classList.remove('act'); $('#rMonthWrap').hidden=true;
+  $('#rName').value=''; $('#rAmt').value=''; $('#rDay').value='1';
+  $('#recurForm').hidden=false;
+}
+function saveRecurDef(){
+  const name=$('#rName').value.trim(), amt=parseFloat($('#rAmt').value);
+  if(!name){ alert('填一下名称，比如“话费”'); return; }
+  if(!(amt>0)){ alert('填一下金额'); return; }
+  const me=LS.me||'a';
+  const def={ id:Date.now()+'-'+Math.random().toString(36).slice(2,5), name, amount:amt,
+    kind:rForm.kind, cat:$('#rCat').value, period:rForm.period,
+    day:parseInt($('#rDay').value,10), month:parseInt($('#rMonth').value||'1',10),
+    creatorId:me, startTs:Date.now() };
+  recurDefs.push(def); REC.save(recurDefs);
+  runRecurring(); render();               // 本期若已到点，立即补上
+  $('#recurForm').hidden=true; renderRecurList();
+}
+
 /* ---------------- 事件绑定 --------------- */
+$('#recurBtn').onclick=openRecurring;
+$('#mask4').onclick=closeRecurring;
+$('#recurAddBtn').onclick=openRecurForm;
+$('#rSegOut').onclick=()=>{ rForm.kind='out'; $('#rSegOut').classList.add('act','out'); $('#rSegIn').classList.remove('act','in'); fillRecurCats(); };
+$('#rSegIn').onclick=()=>{ rForm.kind='in'; $('#rSegIn').classList.add('act','in'); $('#rSegOut').classList.remove('act','out'); fillRecurCats(); };
+$('#rMonthly').onclick=()=>{ rForm.period='monthly'; $('#rMonthly').classList.add('act'); $('#rYearly').classList.remove('act'); $('#rMonthWrap').hidden=true; };
+$('#rYearly').onclick=()=>{ rForm.period='yearly'; $('#rYearly').classList.add('act'); $('#rMonthly').classList.remove('act'); $('#rMonthWrap').hidden=false; };
+$('#rSave').onclick=saveRecurDef;
+
 $('#fab').onclick=()=>{ if(!LS.me){ openWho(); } else openSheet(); };
 $('#mask').onclick=closeSheet;
 $('#whoBtn').onclick=openWho;
@@ -372,6 +479,7 @@ if('serviceWorker' in navigator){
   }).catch(()=>{});
 }
 render();
+if(runRecurring()) render();          // 到点的定期项目自动补记
 if(!LS.me) setTimeout(openWho, 400);
 
 /* ---------------- 云同步启动 --------------- */
@@ -382,7 +490,9 @@ async function refreshFromServer(){
   // 保留本地还没推上去的（离线记的）
   records.filter(r=>!r.synced).forEach(r=>{ if(!map.has(r.id)) map.set(r.id, r); });
   records = Array.from(map.values()).sort((a,b)=>b.ts-a.ts);
-  LS.save(records); render();
+  LS.save(records);
+  runRecurring();                     // 拉到最新后再补记，靠确定性id去重不会重复
+  render();
 }
 async function syncBoot(){
   if(!(window.Sync && Sync.init())) return;   // 未配置则单机运行

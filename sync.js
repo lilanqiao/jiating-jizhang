@@ -14,8 +14,8 @@
     } catch (e) { console.warn('Sync init failed', e); this.enabled = false; return false; }
   };
 
-  const toRow = (r, book) => ({ id: r.id, kind: r.kind, amount: r.amount, cat: r.cat, note: r.note, raw: r.raw || r.note, creator_id: r.creatorId, ts: r.ts, book });
-  const fromRow = x => ({ id: x.id, kind: x.kind, amount: Number(x.amount), cat: x.cat, note: x.note, raw: x.raw || x.note, creatorId: x.creator_id, ts: Number(x.ts), synced: true });
+  const toRow = (r, book) => ({ id: r.id, kind: r.kind, amount: r.amount, cat: r.cat, note: r.note, raw: r.raw || r.note, creator_id: r.creatorId, ts: r.ts, no_count: !!r.noCount, book });
+  const fromRow = x => ({ id: x.id, kind: x.kind, amount: Number(x.amount), cat: x.cat, note: x.note, raw: x.raw || x.note, creatorId: x.creator_id, ts: Number(x.ts), noCount: !!x.no_count, synced: true });
 
   Sync.push = async function (rec) {
     if (!this.enabled) return false;
