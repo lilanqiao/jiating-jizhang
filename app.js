@@ -136,7 +136,9 @@ const FILLER = ['今天','明天','昨天','前天','刚才','刚刚','早晨','
   '我','你','他','她','咱','我们','的','了','在','给','和','跟','与','还','又','就','把','被','帮'];
 function condenseNote(text){
   let s = text.replace(/[，,。.!！?？、；;：:～~]/g,' ');
-  // 去金额
+  // 先去数量词（两份/一份/3个/两瓶…），避免标题里留断头的“两份…一份”
+  s = s.replace(/(\d+|[一二两三四五六七八九十]+)\s*(份|个|张|瓶|杯|斤|件|双|盒|包|次|本|台|部|条|只|碗|袋|箱|套|块|杯)/g,' ');
+  // 再去金额
   s = s.replace(/\d+(?:\.\d{1,2})?\s*(块钱|块|元)?/g,' ')
        .replace(/[零一二两三四五六七八九十百千万亿]+\s*(块钱|块|元)/g,' ');
   for(const f of FILLER) s = s.split(f).join('');
@@ -235,10 +237,11 @@ function saveRecord(){
   const rawText = $('#note').value.trim();
   const shortNote = (condenseNote(rawText) || cur.cat).slice(0, 12); // 列表显示的精简标题
   let rec;
-  if(editingRecordId){                                   // 编辑已有记录
+  if(editingRecordId){                                   // 编辑已有记录：备注你填啥就是啥，不再自动精简
     rec = records.find(r=>r.id===editingRecordId);
-    if(rec){ rec.kind=cur.kind; rec.amount=amt; rec.cat=cur.cat; rec.note=shortNote;
-      rec.raw=rawText||shortNote; rec.noCount=$('#noCount').checked; rec.synced=false; }
+    if(rec){ rec.kind=cur.kind; rec.amount=amt; rec.cat=cur.cat;
+      rec.note=(rawText || cur.cat).slice(0,20); rec.noCount=$('#noCount').checked; rec.synced=false; }
+      // rec.raw（当时说的原话）保持不变
   } else {                                               // 新记录
     rec = {
       id: Date.now()+'-'+Math.random().toString(36).slice(2,6),
@@ -258,9 +261,9 @@ function saveRecord(){
 function openEditSheet(rec){
   editingRecordId = rec.id;
   cur = { kind:rec.kind, cat:rec.cat, amount:rec.amount, note:rec.note };
-  $('#amt').value = rec.amount; $('#note').value = rec.raw || rec.note;
+  $('#amt').value = rec.amount; $('#note').value = rec.note;   // 编辑时显示短标题，方便直接改
   $('#noCount').checked = !!rec.noCount;
-  $('#hint').innerHTML = '改好后点保存';
+  $('#hint').innerHTML = '备注可直接改，改好点保存（原话仍保留在详情里）';
   $('#sheet').querySelector('h3').textContent = '编辑这一笔';
   $('#save').textContent = '保存修改';
   syncSeg(); renderCats(); validate();
@@ -563,13 +566,15 @@ $('#segIn').onclick=()=>{ cur.kind='in'; syncSeg(); validate(); };
 $('#voiceBtn').onclick=startVoice;
 $('#voiceBtn').textContent = voiceIdleLabel();  // 支持语音就显示“点一下说话”，否则引导键盘话筒
 $('#amt').oninput=e=>{ cur.amount=parseFloat(e.target.value); validate(); };
-$('#note').oninput=e=>{ const t=e.target.value; cur.note=t; const p=parseText(t); if(p.amount!=null && !$('#amt').value){ $('#amt').value=p.amount; cur.amount=p.amount; } if(p.kind && p.kind!==cur.kind){ cur.kind=p.kind; syncSeg(); } cur.cat=p.cat; renderCats(); validate(); };
+$('#note').oninput=e=>{ const t=e.target.value; cur.note=t;
+  if(editingRecordId){ validate(); return; }   // 编辑时尊重你手动，不自动改分类/金额/收支
+  const p=parseText(t); if(p.amount!=null && !$('#amt').value){ $('#amt').value=p.amount; cur.amount=p.amount; } if(p.kind && p.kind!==cur.kind){ cur.kind=p.kind; syncSeg(); } cur.cat=p.cat; renderCats(); validate(); };
 $('#save').onclick=saveRecord;
 
 /* ---------------- 启动 --------------- */
 /* 强力自动更新：绕过iOS的缓存顽疾。每次打开都问服务器版本号，
    有新版就清缓存+注销SW+刷新，桌面App从此不会再卡旧版。 */
-const APP_VERSION = 17;
+const APP_VERSION = 18;
 (function forceUpdate(){
   try{
     fetch('version.json?_='+Date.now(), {cache:'no-store'})
