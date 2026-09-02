@@ -306,13 +306,7 @@ function render(){
   if(!records.length){ list.innerHTML=`<div class="empty"><div class="big">🪙</div>还没有记账<br>点下面绿色 ＋ 说一句话试试</div>`; return; }
 
   let html='';
-  // 本月固定支出，收成一个小条（不铺进每天流水）
-  const fixedThis = records.filter(r=>isFixed(r) && !r.noCount && ymd(r.ts).slice(0,7)===mk);
-  let fixedOut=0; fixedThis.forEach(r=>{ if(r.kind==='out') fixedOut+=r.amount; });
-  if(fixedThis.length){
-    html+=`<div class="fixedbar" id="fixedBar"><div><div class="fb-t">🔒 本月固定支出</div><div class="fb-s">房贷 / 保险 / 话费 等 ${fixedThis.length} 项 · 已算进总支出</div></div><div class="fb-r">${yuan(fixedOut)} ›</div></div>`;
-  }
-  // 每天流水：只放手动记的日常账（不含定期）
+  // 固定支出不铺进主页（去 ⏱ 周期记账 里看），但仍计入本月总支出
   const daily = records.filter(r=>!isFixed(r));
   const groups={};
   daily.forEach(r=>{ const k=ymd(r.ts); (groups[k]=groups[k]||[]).push(r); });
@@ -325,7 +319,6 @@ function render(){
   });
   list.innerHTML=html;
   bindItems(list);
-  const fb=$('#fixedBar'); if(fb) fb.onclick=()=>openListSheet('🔒 本月固定支出', fixedThis);
 }
 /* 通用明细弹层：固定支出、某人明细都用它 */
 function openListSheet(title, recs){
@@ -446,7 +439,10 @@ function schedText(d){
 function renderRecurList(){
   const box=$('#recurList');
   if(!recurDefs.length){ box.innerHTML='<div class="recur-empty">还没有定期项目，点下面添加</div>'; return; }
-  box.innerHTML='';
+  // 本月固定支出合计（这些已算进主页“本月支出”）
+  const mk=`${new Date().getFullYear()}-${pad(new Date().getMonth()+1)}`;
+  let sum=0; records.forEach(r=>{ if(isFixed(r) && !r.noCount && r.kind==='out' && ymd(r.ts).slice(0,7)===mk) sum+=r.amount; });
+  box.innerHTML=`<div class="fixedbar" style="cursor:default"><div><div class="fb-t">🔒 本月固定支出合计</div><div class="fb-s">已自动记入，算进主页“本月支出”</div></div><div class="fb-r">${yuan(sum)}</div></div>`;
   recurDefs.forEach(d=>{
     const row=document.createElement('div'); row.className='recur-item';
     row.innerHTML=`<div class="ri-body"><div class="ri-main">${esc(d.name)} ${yuan(d.amount)}</div><div class="ri-sub">${schedText(d)} · 点这里改</div></div><button class="ri-del">删除</button>`;
@@ -574,7 +570,7 @@ $('#save').onclick=saveRecord;
 /* ---------------- 启动 --------------- */
 /* 强力自动更新：绕过iOS的缓存顽疾。每次打开都问服务器版本号，
    有新版就清缓存+注销SW+刷新，桌面App从此不会再卡旧版。 */
-const APP_VERSION = 18;
+const APP_VERSION = 19;
 (function forceUpdate(){
   try{
     fetch('version.json?_='+Date.now(), {cache:'no-store'})

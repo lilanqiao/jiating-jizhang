@@ -1,5 +1,5 @@
 /* 离线缓存：装到桌面后没网也能打开记账 */
-const CACHE = 'jiajz-v18';
+const CACHE = 'jiajz-v19';
 const ASSETS = [
   './', './index.html', './app.js', './config.js', './sync.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png'
