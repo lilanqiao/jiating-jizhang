@@ -307,7 +307,20 @@ $('#note').oninput=e=>{ const t=e.target.value; cur.note=t; const p=parseText(t)
 $('#save').onclick=saveRecord;
 
 /* ---------------- 启动 --------------- */
-if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+/* 自动更新：发现新版本就悄悄刷新，桌面App不再卡在旧版 */
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').then(reg=>{
+    reg.addEventListener('updatefound', ()=>{
+      const nw = reg.installing;
+      nw && nw.addEventListener('statechange', ()=>{
+        // 装好了新版、且不是首次安装 → 直接刷新用最新
+        if(nw.state==='installed' && navigator.serviceWorker.controller){ location.reload(); }
+      });
+    });
+    try{ reg.update(); }catch(e){}
+    setInterval(()=>{ try{ reg.update(); }catch(e){} }, 60000); // 每分钟查一次更新
+  }).catch(()=>{});
+}
 render();
 if(!LS.me) setTimeout(openWho, 400);
 
