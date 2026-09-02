@@ -139,6 +139,8 @@ main{padding:14px 14px 120px}
 .pstat .pv{font-size:13px;text-align:right;font-variant-numeric:tabular-nums}
 .stat-empty{color:var(--sub);font-size:13px;text-align:center;padding:16px 0}
 .pstat{cursor:pointer}
+#toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%) translateY(10px);z-index:80;background:rgba(28,35,33,.92);color:#fff;font-size:14px;padding:10px 16px;border-radius:12px;max-width:80%;text-align:center;opacity:0;pointer-events:none;transition:.2s}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 /* 固定支出小条 */
 .fixedbar{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px dashed var(--line);border-radius:14px;padding:12px 14px;margin-bottom:14px;cursor:pointer}
 .fixedbar .fb-t{font-weight:700;font-size:15px}
@@ -263,9 +265,11 @@ main{padding:14px 14px 120px}
   </div>
 </div>
 
+<div id="toast"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=21"></script>
-<script src="sync.js?v=21"></script>
-<script src="app.js?v=21"></script>
+<script src="config.js?v=22"></script>
+<script src="sync.js?v=22"></script>
+<script src="app.js?v=22"></script>
 </body>
 </html>

@@ -12,6 +12,13 @@ const MEMBERS = [
 ];
 const memberById = id => MEMBERS.find(m => m.id === id) || { id:'?', name:'未知', color:'#999' };
 
+/* 受限成员：只能看到自己记的账（如宝贝，看不到爸妈的）。家长看全家。 */
+const RESTRICTED = new Set(['c']);
+const isRestricted = () => RESTRICTED.has(LS.me);
+const visibleRecords = () => isRestricted() ? records.filter(r => r.creatorId === LS.me) : records;
+let _toastT;
+function showToast(msg){ const t=document.getElementById('toast'); if(!t) return; t.textContent=msg; t.classList.add('on'); clearTimeout(_toastT); _toastT=setTimeout(()=>t.classList.remove('on'),2200); }
+
 /* ---------------- 分类表（带 emoji + 关键词，供自动分类）--------------- */
 const CATS = {
   out: [
@@ -295,19 +302,21 @@ function render(){
   if(me){ const m=memberById(me); $('#whoDot').textContent=m.name[0]; $('#whoDot').style.background=m.color; $('#whoName').textContent=m.name; }
   else { $('#whoName').textContent='选择'; }
 
-  // 本月汇总（全家合计）
+  // 可见范围：家长看全家；宝贝只看自己的
+  const view = visibleRecords();
+  // 本月汇总
   const now=new Date(), mk=`${now.getFullYear()}-${pad(now.getMonth()+1)}`;
   let out=0,inc=0;
-  records.forEach(r=>{ if(!r.noCount && ymd(r.ts).slice(0,7)===mk){ r.kind==='out'?out+=r.amount:inc+=r.amount; } });
+  view.forEach(r=>{ if(!r.noCount && ymd(r.ts).slice(0,7)===mk){ r.kind==='out'?out+=r.amount:inc+=r.amount; } });
   $('#mOut').textContent=yuan(out); $('#mIn').textContent=yuan(inc);
   $('#mNet').textContent=yuan(inc-out);
 
   const list=$('#list');
-  if(!records.length){ list.innerHTML=`<div class="empty"><div class="big">🪙</div>还没有记账<br>点下面绿色 ＋ 说一句话试试</div>`; return; }
+  if(!view.length){ list.innerHTML=`<div class="empty"><div class="big">🪙</div>还没有记账<br>点下面绿色 ＋ 说一句话试试</div>`; return; }
 
   let html='';
   // 固定支出不铺进主页（去 ⏱ 周期记账 里看），但仍计入本月总支出
-  const daily = records.filter(r=>!isFixed(r));
+  const daily = view.filter(r=>!isFixed(r));
   const groups={};
   daily.forEach(r=>{ const k=ymd(r.ts); (groups[k]=groups[k]||[]).push(r); });
   Object.keys(groups).sort().reverse().forEach(k=>{
@@ -438,12 +447,14 @@ function schedText(d){
 }
 function renderRecurList(){
   const box=$('#recurList');
-  if(!recurDefs.length){ box.innerHTML='<div class="recur-empty">还没有定期项目，点下面添加</div>'; return; }
-  // 本月固定支出合计（这些已算进主页“本月支出”）
+  // 家长看全家的定期；宝贝只看自己的
+  const defs = isRestricted() ? recurDefs.filter(d=>d.creatorId===LS.me) : recurDefs;
+  if(!defs.length){ box.innerHTML='<div class="recur-empty">还没有定期项目，点下面添加</div>'; return; }
+  // 本月固定支出合计（可见范围内）
   const mk=`${new Date().getFullYear()}-${pad(new Date().getMonth()+1)}`;
-  let sum=0; records.forEach(r=>{ if(isFixed(r) && !r.noCount && r.kind==='out' && ymd(r.ts).slice(0,7)===mk) sum+=r.amount; });
+  let sum=0; visibleRecords().forEach(r=>{ if(isFixed(r) && !r.noCount && r.kind==='out' && ymd(r.ts).slice(0,7)===mk) sum+=r.amount; });
   box.innerHTML=`<div class="fixedbar" style="cursor:default"><div><div class="fb-t">🔒 本月固定支出合计</div><div class="fb-s">已自动记入，算进主页“本月支出”</div></div><div class="fb-r">${yuan(sum)}</div></div>`;
-  recurDefs.forEach(d=>{
+  defs.forEach(d=>{
     const row=document.createElement('div'); row.className='recur-item';
     row.innerHTML=`<div class="ri-body"><div class="ri-main">${esc(d.name)} ${yuan(d.amount)}</div><div class="ri-sub">${schedText(d)} · 点这里改</div></div><button class="ri-del">删除</button>`;
     row.querySelector('.ri-body').onclick=()=>openRecurForm(d);   // 点项目 → 编辑
@@ -510,7 +521,7 @@ function renderStats(){
   $('#statTitle').textContent = statState.mode==='month' ? `${statState.y}年${statState.m+1}月` : `${statState.y}年`;
   $('#statMonthBtn').classList.toggle('act', statState.mode==='month');
   $('#statYearBtn').classList.toggle('act', statState.mode==='year');
-  const rs = records.filter(r=>!r.noCount && statInRange(r));
+  const rs = visibleRecords().filter(r=>!r.noCount && statInRange(r));
   let out=0, inc=0; const catMap={}, perMap={};
   rs.forEach(r=>{
     if(r.kind==='out'){ out+=r.amount; catMap[r.cat]=(catMap[r.cat]||0)+r.amount; } else inc+=r.amount;
@@ -523,13 +534,15 @@ function renderStats(){
     cats.map(([cat,amt])=>{ const c=CATS.out.find(x=>x.k===cat)||{e:'📦'}; const pct=out?Math.round(amt/out*100):0;
       return `<div class="catbar"><div class="cb-top"><span>${c.e} ${cat}</span><span>${yuan(amt)} · ${pct}%</span></div><div class="cb-track"><div class="cb-fill" style="width:${pct}%"></div></div></div>`;
     }).join('');
-  $('#statPeople').innerHTML = MEMBERS.map(m=>{ const s=perMap[m.id]||{out:0,inc:0};
+  // 家长看全部成员；宝贝只看自己
+  const showMembers = isRestricted() ? MEMBERS.filter(m=>m.id===LS.me) : MEMBERS;
+  $('#statPeople').innerHTML = showMembers.map(m=>{ const s=perMap[m.id]||{out:0,inc:0};
     return `<div class="pstat" data-uid="${m.id}"><div class="pn"><span class="dot" style="background:${m.color}">${m.name[0]}</span>${m.name}</div><div class="pv">支 ${yuan(s.out)}　收 ${yuan(s.inc)} ›</div></div>`;
   }).join('');
   // 点某个人 → 看他这个时段的明细
   $('#statPeople').querySelectorAll('.pstat').forEach(el=>{
     el.onclick=()=>{ const uid=el.dataset.uid; const m=memberById(uid);
-      openListSheet(`${m.name}的明细`, records.filter(r=>!r.noCount && r.creatorId===uid && statInRange(r))); };
+      openListSheet(`${m.name}的明细`, visibleRecords().filter(r=>!r.noCount && r.creatorId===uid && statInRange(r))); };
   });
 }
 function statStep(dir){
@@ -557,7 +570,15 @@ $('#rSave').onclick=saveRecurDef;
 
 $('#fab').onclick=()=>{ if(!LS.me){ openWho(); } else openSheet(); };
 $('#mask').onclick=closeSheet;
-$('#whoBtn').onclick=openWho;
+// 头像：家长可随时切换；宝贝锁定，家长长按2秒解锁
+(function(){
+  const b=$('#whoBtn'); let t, longFired=false;
+  b.onclick=()=>{ if(longFired){ longFired=false; return; } if(isRestricted()){ showToast('已锁定为「宝贝」，家长长按头像2秒可切换'); } else openWho(); };
+  const start=()=>{ longFired=false; t=setTimeout(()=>{ longFired=true; showToast('已解锁，请选择'); openWho(); }, 2000); };
+  const cancel=()=>clearTimeout(t);
+  b.addEventListener('touchstart',start,{passive:true}); b.addEventListener('touchend',cancel); b.addEventListener('touchmove',cancel);
+  b.addEventListener('mousedown',start); b.addEventListener('mouseup',cancel); b.addEventListener('mouseleave',cancel);
+})();
 $('#mask2').onclick=()=>{ if(LS.me){ $('#mask2').classList.remove('on'); $('#sheet2').classList.remove('on'); } };
 $('#mask3').onclick=closeDetail;
 $('#segOut').onclick=()=>{ cur.kind='out'; syncSeg(); validate(); };
@@ -573,7 +594,7 @@ $('#save').onclick=saveRecord;
 /* ---------------- 启动 --------------- */
 /* 强力自动更新：绕过iOS的缓存顽疾。每次打开都问服务器版本号，
    有新版就清缓存+注销SW+刷新，桌面App从此不会再卡旧版。 */
-const APP_VERSION = 21;
+const APP_VERSION = 22;
 (function forceUpdate(){
   try{
     fetch('version.json?_='+Date.now(), {cache:'no-store'})
