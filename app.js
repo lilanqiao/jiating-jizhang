@@ -141,11 +141,14 @@ function parseText(raw){
 
 /* ---------------- 语音识别（Web Speech，可用则用）--------------- */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+// 苹果(iPhone/iPad)对网页语音识别支持很差，统一改用键盘上的话筒
+const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1);
+const CAN_VOICE = !!SR && !IS_IOS;
 let recog=null, recording=false;
 function startVoice(){
   const btn=$('#voiceBtn'), hint=$('#hint');
-  if(!SR){
-    hint.innerHTML = '这台设备的浏览器不支持按住说话，<b>直接用键盘的语音输入</b>把话打进备注即可，一样会自动分类。';
+  if(!CAN_VOICE){
+    hint.innerHTML = '👉 点开下面的<b>「备注」框</b>，再点手机<b>键盘上的话筒 🎤</b> 说话，说完自动帮你填好金额和分类。';
     $('#note').focus();
     return;
   }
@@ -301,6 +304,8 @@ $('#mask2').onclick=()=>{ if(LS.me){ $('#mask2').classList.remove('on'); $('#she
 $('#segOut').onclick=()=>{ cur.kind='out'; syncSeg(); validate(); };
 $('#segIn').onclick=()=>{ cur.kind='in'; syncSeg(); validate(); };
 $('#voiceBtn').onclick=startVoice;
+// 按设备设置按钮文案：苹果直接引导键盘话筒
+$('#voiceBtn').textContent = CAN_VOICE ? '🎤 点一下开始说，说完再点一下' : '⌨️ 点这里→用键盘上的话筒 🎤 说话';
 $('#amt').oninput=e=>{ cur.amount=parseFloat(e.target.value); validate(); };
 $('#note').oninput=e=>{ const t=e.target.value; cur.note=t; const p=parseText(t); if(p.amount!=null && !$('#amt').value){ $('#amt').value=p.amount; cur.amount=p.amount; } if(p.kind && p.kind!==cur.kind){ cur.kind=p.kind; syncSeg(); } cur.cat=p.cat; renderCats(); validate(); };
 $('#save').onclick=saveRecord;
