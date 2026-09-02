@@ -80,7 +80,22 @@ function cn2num(s){
   return r;
 }
 const COUNTER='张个瓶斤杯份位名口只条次页岁只件套双'; // 避免把「两张/三个」当金额
+// 数量：两份/2份/三个…
+function extractQuantity(text){
+  const m = text.match(/([0-9]+|[一二两三四五六七八九十]+)\s*(份|个|张|瓶|杯|斤|件|双|盒|包|次|本|台|部)/);
+  if(m){ const q = /^[0-9]+$/.test(m[1]) ? parseInt(m[1],10) : cn2num(m[1]); if(q>1) return q; }
+  return null;
+}
+// 单价：一份199 / 每份199 / 每个35 / 单价199（数字须紧跟在“每X/单价/一份”之后）
+function extractUnitPrice(text){
+  const m = text.match(/(?:每|单价|一)\s*(?:份|个|张|瓶|杯|盒|本|台|部|件|双)?\s*(\d+(?:\.\d{1,2})?)/);
+  if(m){ const p = parseFloat(m[1]); if(p>0) return p; }
+  return null;
+}
 function extractAmount(text){
+  // 数量 × 单价：如「卖了两份，一份199」→ 398
+  const qty = extractQuantity(text), unit = extractUnitPrice(text);
+  if(qty && unit) return Math.round(qty * unit * 100) / 100;
   // 阿拉伯数字优先（手机语音输入一般已转阿拉伯数字）
   let m = text.match(/(\d+(?:\.\d{1,2})?)/);
   if(m){ const n=parseFloat(m[1]); if(n>0) return n; }
