@@ -177,7 +177,6 @@ const IS_STANDALONE = window.navigator.standalone === true || (window.matchMedia
 const IOS_APP = IS_IOS && IS_STANDALONE;   // 苹果“加到桌面”后网页语音被系统禁用，改用系统键盘听写
 let recog=null, recording=false;
 function voiceIdleLabel(){
-  if(IOS_APP) return '🎤 点这里说话';
   return SR ? '🎤 点一下说话，说完再点一下结束' : '⌨️ 点这里→用键盘上的话筒 🎤 说话';
 }
 function keyboardTip(prefix){
@@ -187,11 +186,7 @@ function keyboardTip(prefix){
 function endVoice(){ recording=false; const b=$('#voiceBtn'); b.classList.remove('rec'); b.textContent=voiceIdleLabel(); }
 function startVoice(){
   const btn=$('#voiceBtn');
-  if(IOS_APP){   // 苹果桌面App：同步聚焦弹出键盘（必须在点击手势内），用系统键盘话筒听写
-    $('#note').focus();
-    $('#hint').innerHTML='👆 键盘弹出后，点键盘上的<b>话筒 🎤</b> 直接说，说完自动填好金额和分类。';
-    return;
-  }
+  // 先真的尝试网页语音「点一下说话」；只有本机确实不给录音(下面 catch/onerror)才退回键盘
   if(!SR){ keyboardTip(); return; }                 // 浏览器完全不支持语音
   if(recording){ recog && recog.stop(); return; }   // 再点一下 = 结束说话
   try { recog = new SR(); } catch(e){ keyboardTip('这台设备不让网页直接录音，'); return; }
@@ -613,7 +608,7 @@ $('#save').onclick=saveRecord;
 /* ---------------- 启动 --------------- */
 /* 强力自动更新：绕过iOS的缓存顽疾。每次打开都问服务器版本号，
    有新版就清缓存+注销SW+刷新，桌面App从此不会再卡旧版。 */
-const APP_VERSION = 26;
+const APP_VERSION = 27;
 (function forceUpdate(){
   try{
     fetch('version.json?_='+Date.now(), {cache:'no-store'})
