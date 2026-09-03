@@ -393,11 +393,12 @@ function openWho(){
     row.onclick=()=>{ LS.me=m.id; $('#mask2').classList.remove('on'); $('#sheet2').classList.remove('on'); render(); };
     box.appendChild(row);
   });
-  // 宝贝专用机：只在女儿手机上点一次。锁定后本机固定为宝贝,切换需家长4位密码。
-  const lock=document.createElement('button'); lock.className='person-row';
-  lock.style.cssText='margin-top:10px';
-  lock.innerHTML=`<span class="dot" style="background:#0e7a5f">🔒</span><b>把这台设为宝贝专用机（锁定）</b>`;
+  // 宝贝专用机：只在女儿手机上点一次(做成不起眼的小字链接,别像个成员)。锁定后固定宝贝,切换需家长4位密码。
+  const lock=document.createElement('button'); lock.className='linkbtn';
+  lock.style.cssText='display:block;margin:16px auto 2px;text-align:center';
+  lock.textContent='🔒 把这台设为女儿的专用机';
   lock.onclick=()=>{
+    if(!confirm('要把这台设成女儿的专用机吗？\n锁定后固定为宝贝，切换需要4位家长密码。\n（在你自己手机上不要设这个。）')) return;
     const p1=prompt('设一个4位家长密码（以后解锁用）：'); if(p1==null) return;
     if(!/^\d{4}$/.test(p1)){ showToast('要4位数字'); return; }
     if(prompt('再输一次确认：')!==p1){ showToast('两次不一致'); return; }
@@ -612,7 +613,7 @@ $('#save').onclick=saveRecord;
 /* ---------------- 启动 --------------- */
 /* 强力自动更新：绕过iOS的缓存顽疾。每次打开都问服务器版本号，
    有新版就清缓存+注销SW+刷新，桌面App从此不会再卡旧版。 */
-const APP_VERSION = 23;
+const APP_VERSION = 24;
 (function forceUpdate(){
   try{
     fetch('version.json?_='+Date.now(), {cache:'no-store'})
