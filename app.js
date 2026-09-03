@@ -574,7 +574,7 @@ function statStep(dir){
 
 /* ---------------- 事件绑定 --------------- */
 $('#statBtn').onclick=openStats; $('#summary').onclick=openStats;
-$('#mask5').onclick=closeStats; $('#statClose').onclick=closeStats;
+$('#mask5').onclick=closeStats; $('#statClose')?.addEventListener('click', closeStats);
 $('#mask6').onclick=closeListSheet;
 $('#statPrev').onclick=()=>statStep(-1);
 $('#statNext').onclick=()=>statStep(1);
@@ -613,7 +613,7 @@ $('#save').onclick=saveRecord;
 /* ---------------- 启动 --------------- */
 /* 强力自动更新：绕过iOS的缓存顽疾。每次打开都问服务器版本号，
    有新版就清缓存+注销SW+刷新，桌面App从此不会再卡旧版。 */
-const APP_VERSION = 25;
+const APP_VERSION = 26;
 (function forceUpdate(){
   try{
     fetch('version.json?_='+Date.now(), {cache:'no-store'})
