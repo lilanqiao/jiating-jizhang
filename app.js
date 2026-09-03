@@ -47,9 +47,16 @@ const CATS = {
 const LS = {
   get me(){ return localStorage.getItem('jz_me') || ''; },
   set me(v){ localStorage.setItem('jz_me', v); },
+  // 宝贝专用机：本机标记(不同步)。开了=这台是女儿的机子,锁定宝贝,切换需家长密码。
+  get kidLock(){ return localStorage.getItem('jz_kidlock') || ''; },
+  set kidLock(v){ v ? localStorage.setItem('jz_kidlock', '1') : localStorage.removeItem('jz_kidlock'); },
+  get kidPin(){ return localStorage.getItem('jz_kidpin') || ''; },
+  set kidPin(v){ localStorage.setItem('jz_kidpin', v); },
   load(){ try{ return JSON.parse(localStorage.getItem('jz_records')||'[]'); }catch{ return []; } },
   save(r){ localStorage.setItem('jz_records', JSON.stringify(r)); },
 };
+/* 锁只认「这台是不是宝贝专用机」,不认屏幕上当前是谁——家长手机永不锁。 */
+const isLocked = () => LS.kidLock === '1';
 let records = LS.load();
 
 /* ---------------- 工具 --------------- */
@@ -386,6 +393,19 @@ function openWho(){
     row.onclick=()=>{ LS.me=m.id; $('#mask2').classList.remove('on'); $('#sheet2').classList.remove('on'); render(); };
     box.appendChild(row);
   });
+  // 宝贝专用机：只在女儿手机上点一次。锁定后本机固定为宝贝,切换需家长4位密码。
+  const lock=document.createElement('button'); lock.className='person-row';
+  lock.style.cssText='margin-top:10px';
+  lock.innerHTML=`<span class="dot" style="background:#0e7a5f">🔒</span><b>把这台设为宝贝专用机（锁定）</b>`;
+  lock.onclick=()=>{
+    const p1=prompt('设一个4位家长密码（以后解锁用）：'); if(p1==null) return;
+    if(!/^\d{4}$/.test(p1)){ showToast('要4位数字'); return; }
+    if(prompt('再输一次确认：')!==p1){ showToast('两次不一致'); return; }
+    LS.kidPin=p1; LS.kidLock=true; LS.me='c';
+    $('#mask2').classList.remove('on'); $('#sheet2').classList.remove('on'); render();
+    showToast('已锁定为宝贝专用机');
+  };
+  box.appendChild(lock);
   $('#mask2').classList.add('on'); $('#sheet2').classList.add('on');
 }
 
@@ -570,15 +590,13 @@ $('#rSave').onclick=saveRecurDef;
 
 $('#fab').onclick=()=>{ if(!LS.me){ openWho(); } else openSheet(); };
 $('#mask').onclick=closeSheet;
-// 头像：家长可随时切换；宝贝锁定，家长长按2秒解锁
-(function(){
-  const b=$('#whoBtn'); let t, longFired=false;
-  b.onclick=()=>{ if(longFired){ longFired=false; return; } if(isRestricted()){ showToast('已锁定为「宝贝」，家长长按头像2秒可切换'); } else openWho(); };
-  const start=()=>{ longFired=false; t=setTimeout(()=>{ longFired=true; showToast('已解锁，请选择'); openWho(); }, 2000); };
-  const cancel=()=>clearTimeout(t);
-  b.addEventListener('touchstart',start,{passive:true}); b.addEventListener('touchend',cancel); b.addEventListener('touchmove',cancel);
-  b.addEventListener('mousedown',start); b.addEventListener('mouseup',cancel); b.addEventListener('mouseleave',cancel);
-})();
+// 头像：家长手机随时切换；宝贝专用机锁定,解锁需家长4位密码(替代iOS上失灵的长按)
+$('#whoBtn').onclick=()=>{
+  if(!isLocked()){ openWho(); return; }
+  const pin=prompt('家长密码（4位）解锁：'); if(pin==null) return;
+  if(pin===LS.kidPin){ LS.kidLock=false; showToast('已解锁'); openWho(); }
+  else showToast('密码不对');
+};
 $('#mask2').onclick=()=>{ if(LS.me){ $('#mask2').classList.remove('on'); $('#sheet2').classList.remove('on'); } };
 $('#mask3').onclick=closeDetail;
 $('#segOut').onclick=()=>{ cur.kind='out'; syncSeg(); validate(); };
@@ -594,7 +612,7 @@ $('#save').onclick=saveRecord;
 /* ---------------- 启动 --------------- */
 /* 强力自动更新：绕过iOS的缓存顽疾。每次打开都问服务器版本号，
    有新版就清缓存+注销SW+刷新，桌面App从此不会再卡旧版。 */
-const APP_VERSION = 22;
+const APP_VERSION = 23;
 (function forceUpdate(){
   try{
     fetch('version.json?_='+Date.now(), {cache:'no-store'})
