@@ -65,6 +65,12 @@ main{padding:14px 14px 120px}
   padding:18px 18px calc(18px + var(--safe-b));transform:translateY(110%);transition:transform .28s cubic-bezier(.2,.8,.2,1);max-height:92vh;overflow:auto}
 .sheet.on{transform:translateY(0)}
 .sheet h3{margin:2px 0 14px;font-size:17px;text-align:center}
+/* 统计弹窗：固定头(带✕)+可滚动身体,长内容也能随手关 */
+#sheet5{padding:0;overflow:hidden;display:flex;flex-direction:column}
+#sheet5 .sheet-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid var(--line);flex:none}
+#sheet5 .sheet-head b{font-size:17px}
+#sheet5 .sheet-x{width:34px;height:34px;border-radius:50%;background:#eef1f0;color:var(--ink);font-size:15px;display:grid;place-items:center;flex:none}
+#sheet5 .sheet-body{overflow:auto;padding:14px 18px calc(18px + var(--safe-b))}
 .seg{display:flex;background:#eef1f0;border-radius:12px;padding:4px;margin-bottom:14px}
 .seg button{flex:1;padding:9px;border-radius:9px;font-weight:600;color:var(--sub)}
 .seg button.act{background:#fff;color:var(--ink);box-shadow:var(--shadow)}
@@ -221,18 +227,20 @@ main{padding:14px 14px 120px}
 <!-- stats sheet -->
 <div class="mask" id="mask5"></div>
 <div class="sheet" id="sheet5">
-  <h3>📊 统计</h3>
-  <div class="stat-nav"><button id="statPrev">‹</button><div id="statTitle">—</div><button id="statNext">›</button></div>
-  <div class="seg small" style="margin-bottom:14px"><button id="statMonthBtn" class="act">按月</button><button id="statYearBtn">按年</button></div>
-  <div class="stat-cards">
-    <div><div class="k">支出</div><div class="v" id="stOut">¥0</div></div>
-    <div><div class="k">收入</div><div class="v" id="stIn">¥0</div></div>
-    <div><div class="k">结余</div><div class="v" id="stNet">¥0</div></div>
+  <div class="sheet-head"><b>📊 统计</b><button class="sheet-x" id="statClose" aria-label="关闭">✕</button></div>
+  <div class="sheet-body">
+    <div class="stat-nav"><button id="statPrev">‹</button><div id="statTitle">—</div><button id="statNext">›</button></div>
+    <div class="seg small" style="margin-bottom:14px"><button id="statMonthBtn" class="act">按月</button><button id="statYearBtn">按年</button></div>
+    <div class="stat-cards">
+      <div><div class="k">支出</div><div class="v" id="stOut">¥0</div></div>
+      <div><div class="k">收入</div><div class="v" id="stIn">¥0</div></div>
+      <div><div class="k">结余</div><div class="v" id="stNet">¥0</div></div>
+    </div>
+    <div class="stat-sec">支出去向（钱花在哪）</div>
+    <div id="statCats"></div>
+    <div class="stat-sec">按成员（谁花的/谁挣的）</div>
+    <div id="statPeople"></div>
   </div>
-  <div class="stat-sec">支出去向（钱花在哪）</div>
-  <div id="statCats"></div>
-  <div class="stat-sec">按成员（谁花的/谁挣的）</div>
-  <div id="statPeople"></div>
 </div>
 
 <!-- detail-list sheet (固定支出/某人明细) -->
@@ -268,8 +276,8 @@ main{padding:14px 14px 120px}
 <div id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=24"></script>
-<script src="sync.js?v=24"></script>
-<script src="app.js?v=24"></script>
+<script src="config.js?v=25"></script>
+<script src="sync.js?v=25"></script>
+<script src="app.js?v=25"></script>
 </body>
 </html>
