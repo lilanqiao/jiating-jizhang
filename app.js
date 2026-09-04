@@ -343,8 +343,8 @@ function renderFilterBar(){
   const bar=$('#filterBar'); if(!bar) return;
   if(isRestricted() || !LS.me){ bar.hidden=true; bar.innerHTML=''; return; }
   bar.hidden=false;
-  // 顺序：妈妈·爸爸·宝贝·全家(全家放最后)
-  const opts=[...['b','a','c'].map(memberById), {id:'all',name:'全家'}];
+  // 顺序：全家·妈妈·爸爸·宝贝
+  const opts=[{id:'all',name:'全家'}, ...['b','a','c'].map(memberById)];
   bar.innerHTML = opts.map(o=>`<button class="fchip${viewFilter===o.id?' on':''}" data-f="${o.id}">${o.name}</button>`).join('');
   bar.querySelectorAll('.fchip').forEach(b=> b.onclick=()=>{ viewFilter=b.dataset.f; render(); });
 }
@@ -625,7 +625,7 @@ $('#save').onclick=saveRecord;
 /* ---------------- 启动 --------------- */
 /* 强力自动更新：绕过iOS的缓存顽疾。每次打开都问服务器版本号，
    有新版就清缓存+注销SW+刷新，桌面App从此不会再卡旧版。 */
-const APP_VERSION = 32;
+const APP_VERSION = 33;
 let _updating=false;
 function checkUpdate(){
   if(_updating) return;
