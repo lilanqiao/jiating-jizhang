@@ -12,9 +12,9 @@ const MEMBERS = [
 ];
 const memberById = id => MEMBERS.find(m => m.id === id) || { id:'?', name:'未知', color:'#999' };
 
-/* 受限成员：只能看到自己记的账（如宝贝，看不到爸妈的）。家长看全家。 */
-const RESTRICTED = new Set(['c']);
-const isRestricted = () => RESTRICTED.has(LS.me);
+/* 看全家的角色：只有妈妈看全部；其余(爸爸/宝贝)各自只看自己记的账。 */
+const FULL_VIEW = new Set(['b']);
+const isRestricted = () => !!LS.me && !FULL_VIEW.has(LS.me);
 const visibleRecords = () => isRestricted() ? records.filter(r => r.creatorId === LS.me) : records;
 let _toastT;
 function showToast(msg){ const t=document.getElementById('toast'); if(!t) return; t.textContent=msg; t.classList.add('on'); clearTimeout(_toastT); _toastT=setTimeout(()=>t.classList.remove('on'),2200); }
@@ -608,7 +608,7 @@ $('#save').onclick=saveRecord;
 /* ---------------- 启动 --------------- */
 /* 强力自动更新：绕过iOS的缓存顽疾。每次打开都问服务器版本号，
    有新版就清缓存+注销SW+刷新，桌面App从此不会再卡旧版。 */
-const APP_VERSION = 28;
+const APP_VERSION = 29;
 (function forceUpdate(){
   try{
     fetch('version.json?_='+Date.now(), {cache:'no-store'})
