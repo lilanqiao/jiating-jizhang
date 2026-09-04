@@ -35,6 +35,11 @@ header{position:sticky;top:0;z-index:20;background:linear-gradient(135deg,var(--
 .scard .k{font-size:12px;opacity:.85}
 .scard .v{font-size:20px;font-weight:700;margin-top:2px}
 
+/* ---------- 看谁筛选条 ---------- */
+.filter-bar{display:flex;gap:8px;overflow-x:auto;padding:12px 14px 2px;-webkit-overflow-scrolling:touch}
+.filter-bar .fchip{flex:none;padding:6px 14px;border-radius:999px;background:var(--card);border:1px solid var(--line);color:var(--sub);font-size:13px;font-weight:600}
+.filter-bar .fchip.on{background:var(--green);border-color:var(--green);color:#fff}
+
 /* ---------- list ---------- */
 main{padding:14px 14px 120px}
 .daygroup{margin-bottom:16px}
@@ -175,6 +180,7 @@ main{padding:14px 14px 120px}
   </div>
 </header>
 
+<div id="filterBar" class="filter-bar" hidden></div>
 <main id="list"></main>
 
 <button class="fab" id="fab">＋</button>
@@ -276,8 +282,8 @@ main{padding:14px 14px 120px}
 <div id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=29"></script>
-<script src="sync.js?v=29"></script>
-<script src="app.js?v=29"></script>
+<script src="config.js?v=30"></script>
+<script src="sync.js?v=30"></script>
+<script src="app.js?v=30"></script>
 </body>
 </html>

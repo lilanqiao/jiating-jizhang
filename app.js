@@ -12,10 +12,15 @@ const MEMBERS = [
 ];
 const memberById = id => MEMBERS.find(m => m.id === id) || { id:'?', name:'未知', color:'#999' };
 
-/* 看全家的角色：只有妈妈看全部；其余(爸爸/宝贝)各自只看自己记的账。 */
-const FULL_VIEW = new Set(['b']);
-const isRestricted = () => !!LS.me && !FULL_VIEW.has(LS.me);
-const visibleRecords = () => isRestricted() ? records.filter(r => r.creatorId === LS.me) : records;
+/* 身份权限：宝贝只看自己记的账;爸爸妈妈都是家长,各自手机默认看全家。 */
+const RESTRICTED = new Set(['c']);
+const isRestricted = () => RESTRICTED.has(LS.me);
+/* 「看谁」筛选:只家长用,只改本机当前显示范围(不同步/不改身份)。'all'=全家,或某人creatorId。 */
+let viewFilter = 'all';
+const visibleRecords = () => {
+  if(isRestricted()) return records.filter(r => r.creatorId === LS.me);   // 宝贝:锁死只看自己
+  return viewFilter==='all' ? records : records.filter(r => r.creatorId === viewFilter);
+};
 let _toastT;
 function showToast(msg){ const t=document.getElementById('toast'); if(!t) return; t.textContent=msg; t.classList.add('on'); clearTimeout(_toastT); _toastT=setTimeout(()=>t.classList.remove('on'),2200); }
 
@@ -304,7 +309,9 @@ function render(){
   if(me){ const m=memberById(me); $('#whoDot').textContent=m.name[0]; $('#whoDot').style.background=m.color; $('#whoName').textContent=m.name; }
   else { $('#whoName').textContent='选择'; }
 
-  // 可见范围：家长看全家；宝贝只看自己的
+  // 「看谁」筛选条：只家长显示，宝贝不显示（它只能看自己）
+  renderFilterBar();
+  // 可见范围：家长看全家(可再筛某人)；宝贝只看自己的
   const view = visibleRecords();
   // 本月汇总
   const now=new Date(), mk=`${now.getFullYear()}-${pad(now.getMonth()+1)}`;
@@ -330,6 +337,15 @@ function render(){
   });
   list.innerHTML=html;
   bindItems(list);
+}
+/* 「看谁」筛选条：全家/爸爸/妈妈/宝贝，只家长可见，只筛显示不改身份 */
+function renderFilterBar(){
+  const bar=$('#filterBar'); if(!bar) return;
+  if(isRestricted() || !LS.me){ bar.hidden=true; bar.innerHTML=''; return; }
+  bar.hidden=false;
+  const opts=[{id:'all',name:'全家'}, ...MEMBERS];
+  bar.innerHTML = opts.map(o=>`<button class="fchip${viewFilter===o.id?' on':''}" data-f="${o.id}">${o.name}</button>`).join('');
+  bar.querySelectorAll('.fchip').forEach(b=> b.onclick=()=>{ viewFilter=b.dataset.f; render(); });
 }
 /* 通用明细弹层：固定支出、某人明细都用它 */
 function openListSheet(title, recs){
@@ -608,7 +624,7 @@ $('#save').onclick=saveRecord;
 /* ---------------- 启动 --------------- */
 /* 强力自动更新：绕过iOS的缓存顽疾。每次打开都问服务器版本号，
    有新版就清缓存+注销SW+刷新，桌面App从此不会再卡旧版。 */
-const APP_VERSION = 29;
+const APP_VERSION = 30;
 (function forceUpdate(){
   try{
     fetch('version.json?_='+Date.now(), {cache:'no-store'})
