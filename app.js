@@ -624,13 +624,16 @@ $('#save').onclick=saveRecord;
 /* ---------------- 启动 --------------- */
 /* 强力自动更新：绕过iOS的缓存顽疾。每次打开都问服务器版本号，
    有新版就清缓存+注销SW+刷新，桌面App从此不会再卡旧版。 */
-const APP_VERSION = 30;
-(function forceUpdate(){
+const APP_VERSION = 31;
+let _updating=false;
+function checkUpdate(){
+  if(_updating) return;
   try{
     fetch('version.json?_='+Date.now(), {cache:'no-store'})
       .then(r=>r.json())
       .then(d=>{
         if(d && d.v && d.v > APP_VERSION){
+          _updating=true;
           Promise.all([
             (self.caches&&caches.keys)?caches.keys().then(ks=>Promise.all(ks.map(k=>caches.delete(k)))):Promise.resolve(),
             navigator.serviceWorker?navigator.serviceWorker.getRegistrations().then(rs=>Promise.all(rs.map(r=>r.unregister()))):Promise.resolve()
@@ -641,7 +644,11 @@ const APP_VERSION = 30;
         }
       }).catch(()=>{});
   }catch(e){}
-})();
+}
+checkUpdate();
+// iOS 独立App"重新点开"常是唤醒旧页面、不重新加载→切回前台时再查一次版本
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) checkUpdate(); });
+window.addEventListener('pageshow', e=>{ if(e.persisted) checkUpdate(); });
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').then(reg=>{
     reg.addEventListener('updatefound', ()=>{
